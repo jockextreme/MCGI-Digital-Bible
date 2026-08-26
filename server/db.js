@@ -59,6 +59,19 @@ function initSchema() {
       verse INTEGER NOT NULL,
       label TEXT NOT NULL
     );
+
+    CREATE TABLE IF NOT EXISTS operators (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      username TEXT NOT NULL UNIQUE,
+      display_name TEXT NOT NULL,
+      password_hash TEXT NOT NULL,
+      password_salt TEXT NOT NULL,
+      last_version TEXT,
+      last_book TEXT,
+      last_chapter INTEGER,
+      last_verse INTEGER,
+      created_at TEXT NOT NULL DEFAULT (datetime('now'))
+    );
   `);
 }
 
