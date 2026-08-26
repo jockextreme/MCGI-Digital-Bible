@@ -49,47 +49,100 @@ npm run dev
 mcgi-digital-bible/
 ├── package.json
 ├── server/
-│   ├── index.js              Express app entrypoint
+│   ├── index.js              Express app entrypoint + WebSocket routing
 │   ├── db.js                 SQLite connection + schema
+│   ├── auth.js                password hashing (Node's built-in crypto.scrypt)
+│   ├── liveState.js           per-operator "room" state + WebSocket broadcast
+│   ├── wsTokens.js            short-lived tokens for authenticating operator WS connections
+│   ├── verseLookup.js         shared verse-fetching logic
 │   ├── routes/
 │   │   ├── books.js          GET /api/books
 │   │   ├── versions.js       GET /api/versions
 │   │   ├── verses.js         GET /api/verses, /api/verses/chapter-meta
 │   │   ├── search.js         GET /api/search   (FTS5)
-│   │   └── settings.js       GET/PUT /api/font-settings
+│   │   ├── settings.js       GET/PUT /api/font-settings
+│   │   ├── auth.js            register/login/logout/me/ws-token
+│   │   ├── liveState.js       GET/POST /api/live-state (per-operator)
+│   │   ├── operators.js       GET /api/operators/online
+│   │   └── networkInfo.js     GET /api/network-info
 │   └── seed/
 │       ├── seed.js           populates the database
 │       ├── adb.json          Ang Dating Biblia full text (public domain)
 │       └── kjv.json          King James Version full text (public domain)
 ├── public/                   the frontend (served statically by Express)
-│   ├── index.html
+│   ├── index.html / js/app.js         Operator console (login-gated)
+│   ├── operators.html                  "Choose an operator" picker for viewers
+│   ├── present.html / js/present.js    Audience/viewer display
 │   ├── css/style.css
-│   └── js/app.js
+│   └── img/                            drop logo.png / background.jpg here
 └── data/
     └── bible.db              created by `npm run seed` (gitignored)
 ```
 
+## Operator accounts & multiple simultaneous operators
+
+The console (`/`) now requires logging in — register with any
+username/password right on that page (no admin approval step, no email
+verification; this is meant for your own team, not the general public). What
+this buys you:
+
+- **Each operator has their own independent "room."** Two people can run
+  two completely separate services at the same time (e.g. a Tagalog service
+  and an English service) without interfering with each other.
+- **Resume where you left off.** Your last book/chapter/verse/version is
+  saved automatically every time you navigate, and restored the next time
+  you log in.
+- **Viewers pick which operator to follow.** `/operators` lists everyone
+  currently online (i.e. currently has their console open) — click one to
+  open their presenter view (`/present?operator=<username>`).
+
+Passwords are hashed with Node's built-in `crypto.scrypt` (no extra
+dependency). Sessions use `express-session` with its default in-memory
+store — fine for a small team on one server process, but sessions won't
+survive a server restart, and it isn't meant for large-scale public
+deployments. If this ever needs to scale beyond a handful of operators or
+run across multiple server instances, swap in a real session store (e.g.
+`connect-sqlite3` or Redis).
+
 ## Presenter/Audience split view
 
-The control page (`/`) is what the operator uses — full toolbar, search,
-font settings, etc. The **presenter view** (`/present`) is a clean, no-
+The **presenter view** (`/present?operator=<username>`) is a clean, no-
 controls display meant for the projector/TV, kept in sync in real time over
-WebSocket: whenever the operator navigates to a new verse, every open
-presenter window updates instantly.
+WebSocket: whenever that operator navigates to a new verse, every viewer
+watching them updates instantly.
 
 Works for both setups:
 - **One laptop, extended display** — click "Open Presenter Display" on the
-  control page, drag that new window to the projector/second monitor, make
-  it fullscreen (the **TOP** button toggles fullscreen).
+  control page (this automatically includes your own username in the
+  link), drag that new window to the projector/second monitor, make it
+  fullscreen (the **TOP** button toggles fullscreen).
 - **Two different devices, same WiFi** — the control page shows a LAN URL
-  (e.g. `http://192.168.1.23:3000/present`) under the toolbar. Open that on
-  the second device's browser.
+  under the toolbar, already including your operator name.
 
-Under the hood: the server keeps one shared "current reference" in memory
-(`server/liveState.js`). The control page POSTs to `/api/live-state`
-whenever it navigates; the server resolves the verse text and broadcasts it
-to every connected WebSocket client (`/ws`). The presenter page only
-listens — it never has its own controls.
+### Auto vs Manual Version Mode (viewer-side)
+
+Every presenter/viewer page has a small, unobtrusive version picker in the
+bottom-left corner:
+- **Auto (default)** — mirrors whatever version the operator is currently
+  showing.
+- **Manual** — pick any version with real text loaded (currently Ang Dating
+  Biblia or KJV). The viewer keeps following the *same verse reference* the
+  operator navigates to, but always displayed in their own chosen version —
+  independent of what the operator picks. This means one operator can drive
+  a Tagalog room and an English-reading viewer in the same room sees the
+  same verses in English, automatically, with no extra work from the
+  operator. This choice is remembered per-operator in the viewer's own
+  browser (`localStorage`), not on the server.
+
+Under the hood: the server keeps one "room" per operator username in memory
+(`server/liveState.js`), each with its own current reference and its own set
+of connected viewer sockets. The operator's console POSTs to
+`/api/live-state` whenever it navigates; the server resolves the verse text
+for the *operator's* version and broadcasts the reference + operator's text
+to that room. Viewers in Auto mode just display what they're sent; viewers
+in Manual mode take just the book/chapter/verse from that broadcast and
+independently call `GET /api/verses` themselves with their own chosen
+version.
 
 ## Church logo/branding
 
@@ -117,6 +170,13 @@ swap in a real logo:
 - `GET /api/search?version=ADB&q=pag-ibig` — full-text search, ranked, capped at 60 results.
 - `GET /api/font-settings` — the 14-row content-length → font-size table.
 - `PUT /api/font-settings` — body `[{ rangeIndex, fontSize }, ...]`, persists edits.
+- `POST /api/auth/register` — body `{ username, password, displayName }`, logs you in immediately.
+- `POST /api/auth/login` / `POST /api/auth/logout`
+- `GET /api/auth/me` — current session's operator, or `null`.
+- `GET /api/auth/ws-token` — short-lived token for the operator's own WebSocket presence connection.
+- `GET /api/operators/online` — currently-online operators, for the `/operators` picker page.
+- `GET /api/live-state?operator=username` — an operator's current reference.
+- `POST /api/live-state` — (requires login) body `{ version, book, chapter, verse }`; updates and broadcasts the logged-in operator's own room, and saves it as their resume point.
 
 ## Bible text data
 
@@ -190,14 +250,22 @@ npm run seed && npm start
 
 Re-seeding takes a couple of seconds and is idempotent, so this just means
 the database silently rebuilds itself every time the service boots. You
-won't lose anything, since the Bible text itself never changes — but
-**Font Setting edits (the S dialog) will reset to defaults on every
-restart**, since those live in the same database. If that becomes annoying:
+won't lose the Bible text, since that never changes — but **everything else
+in the database resets on every restart too**: Font Setting edits, and
+**all registered operator accounts**. Anyone who registered will need to
+register again after a restart. If that becomes annoying:
 - Upgrade to a Render plan with a **persistent disk**, mount it at the
   `data/` folder, and change the start command back to just `npm start`
   (seed once manually via the Render shell instead).
-- Or store font settings somewhere that survives restarts instead (a
-  separate small config file committed to the repo, or an external DB).
+- Or move accounts/settings to a database that lives outside this
+  ephemeral disk (a managed Postgres add-on, for example).
+
+Also set a **`SESSION_SECRET`** environment variable in the Render
+dashboard (any long random string) — without it, a new random secret is
+generated every time the service boots, which logs every operator out on
+every restart even beyond the account-wipe issue above. (If you deployed
+via the `render.yaml` Blueprint, this is already handled — it auto-generates
+one for you. This only matters if you set the service up manually.)
 
 ### Other things that differ from local/LAN use
 
