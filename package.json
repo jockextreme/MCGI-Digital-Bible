@@ -1,0 +1,19 @@
+{
+  "name": "mcgi-digital-bible",
+  "version": "1.0.0",
+  "description": "MCGI Digital Bible — a full-stack verse presentation app for worship services (Express + SQLite backend, vanilla JS frontend).",
+  "main": "server/index.js",
+  "scripts": {
+    "seed": "node server/seed/seed.js",
+    "start": "node server/index.js",
+    "dev": "node --watch server/index.js"
+  },
+  "dependencies": {
+    "better-sqlite3": "^11.3.0",
+    "express": "^4.19.2",
+    "ws": "^8.21.3"
+  },
+  "engines": {
+    "node": ">=18"
+  }
+}

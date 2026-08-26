@@ -1,0 +1,16 @@
+services:
+  - type: web
+    name: mcgi-digital-bible
+    runtime: node
+    plan: free
+    buildCommand: npm install
+    # Re-seeding on every boot is deliberate: Render's free/standard disks
+    # are ephemeral, so the SQLite file wouldn't survive a restart or deploy
+    # otherwise. Seeding only takes a couple of seconds and is idempotent.
+    startCommand: npm run seed && npm start
+    envVars:
+      - key: NODE_VERSION
+        value: 20.11.0
+    # If you upgrade to a paid plan and add a persistent disk mounted at
+    # /opt/render/project/src/data, you can drop the "npm run seed &&" part
+    # of startCommand above and seed once manually instead.
