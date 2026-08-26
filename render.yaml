@@ -8,9 +8,11 @@ services:
     # are ephemeral, so the SQLite file wouldn't survive a restart or deploy
     # otherwise. Seeding only takes a couple of seconds and is idempotent.
     startCommand: npm run seed && npm start
-    envVars:
-      - key: NODE_VERSION
-        value: 20.11.0
+    # Node version is pinned via the .node-version file at the repo root
+    # (Render's documented way to control this) — better-sqlite3 needs an
+    # LTS version with prebuilt binaries available; very new/edge Node
+    # versions can break its native addon build.
+    #
     # If you upgrade to a paid plan and add a persistent disk mounted at
     # /opt/render/project/src/data, you can drop the "npm run seed &&" part
     # of startCommand above and seed once manually instead.
