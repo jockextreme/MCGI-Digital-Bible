@@ -1,0 +1,40 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>MCGI Digital Bible — Presenter</title>
+<link rel="stylesheet" href="css/style.css">
+<style>
+  /* Presenter view has no toolbar — the card fills the whole window. */
+  .stage-shell{ padding:1.6vw; }
+  .conn-badge{
+    position:fixed; top:14px; right:18px; z-index:10;
+    font-family:Arial, Helvetica, sans-serif; font-size:11px;
+    color:#cbd5f5; background:rgba(0,0,0,0.35); padding:4px 10px;
+    border-radius:20px; opacity:0.7;
+  }
+  .conn-badge.connected{ display:none; }
+</style>
+</head>
+<body>
+
+  <div class="conn-badge" id="connBadge">Connecting…</div>
+
+  <div class="stage-shell">
+    <div class="card" id="card">
+      <div class="logo-badge" aria-hidden="true">MCGI</div>
+      <div class="card-inner">
+        <p class="ref" id="stageRef">—</p>
+        <p class="version-label" id="stageVersion">Waiting for a reference…</p>
+        <div class="verse-body">
+          <p id="stageText">Open the control panel on another window/device and pick a verse.</p>
+        </div>
+        <div class="crossrefs" id="crossrefs"></div>
+      </div>
+    </div>
+  </div>
+
+  <script src="js/present.js"></script>
+</body>
+</html>
