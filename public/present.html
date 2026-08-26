@@ -15,11 +15,23 @@
     border-radius:20px; opacity:0.7;
   }
   .conn-badge.connected{ display:none; }
+  .version-mode{
+    position:fixed; bottom:14px; left:18px; z-index:10;
+    font-family:Arial, Helvetica, sans-serif; font-size:11px;
+  }
+  .version-mode select{
+    background:rgba(0,0,0,0.4); color:#dce6ff; border:1px solid rgba(224,168,60,0.4);
+    border-radius:20px; padding:4px 10px; font-size:11px; opacity:0.6;
+  }
+  .version-mode select:hover, .version-mode select:focus{ opacity:1; }
 </style>
 </head>
 <body>
 
   <div class="conn-badge" id="connBadge">Connecting…</div>
+  <div class="version-mode">
+    <select id="versionModeSelect" title="Choose which version to display"></select>
+  </div>
 
   <div class="stage-shell">
     <div class="card" id="card">

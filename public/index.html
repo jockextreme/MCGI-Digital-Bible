@@ -8,6 +8,38 @@
 </head>
 <body>
 
+  <div class="fs-overlay open" id="authOverlay">
+    <div class="fs-dialog auth-dialog">
+      <div class="fs-titlebar">
+        <span id="authTitle">Operator Login</span>
+      </div>
+      <div class="fs-body">
+        <div class="auth-field">
+          <label>Username</label>
+          <input type="text" id="authUsername" autocomplete="username" />
+        </div>
+        <div class="auth-field" id="authDisplayNameField" style="display:none;">
+          <label>Display name</label>
+          <input type="text" id="authDisplayName" />
+        </div>
+        <div class="auth-field">
+          <label>Password</label>
+          <input type="password" id="authPassword" autocomplete="current-password" />
+        </div>
+        <div class="auth-error" id="authError"></div>
+        <div class="fs-actions">
+          <button class="fs-btn" id="authSubmit">Log in</button>
+        </div>
+        <div class="auth-switch">
+          <span id="authSwitchText">No account yet?</span>
+          <a href="#" id="authSwitchLink">Register instead</a>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div id="mainConsole" style="display:none;">
+
   <div class="stage-shell">
     <div class="card" id="card">
       <div class="logo-badge" aria-hidden="true">MCGI</div>
@@ -51,8 +83,12 @@
   </div>
 
   <div class="presenter-panel">
+    <span class="account-badge" id="accountBadge"></span>
     <button class="navbtn" id="openPresenterBtn">Open Presenter Display ↗</button>
     <span class="presenter-hint" id="presenterHint"></span>
+    <button class="navbtn" id="logoutBtn">Log out</button>
+  </div>
+
   </div>
 
   <div class="fs-overlay" id="fsOverlay">
