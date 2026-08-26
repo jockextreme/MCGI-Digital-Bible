@@ -8,6 +8,8 @@
     autoResize: true,
     fontStep: 2,           // 1 small, 2 medium, 3 large — manual mode only
     fontTable: [],         // [{rangeIndex, minLength, maxLength, fontSize}]
+    operator: null,        // { id, username, displayName, lastVersion, lastBook, lastChapter, lastVerse }
+    authMode: 'login'      // 'login' | 'register'
   };
   const FONT_SIZES = { 1: 34, 2: 40, 3: 46 };
   const DESIGN_WIDTH = 1920;
@@ -29,13 +31,101 @@
     return b ? b.tagalogName : key;
   }
 
-  // ---------- Boot ----------
+  // ---------- Auth (login/register gate) ----------
   async function boot() {
+    wireAuthForm();
+    const me = await api('/auth/me').catch(() => null);
+    if (me) {
+      state.operator = me;
+      await enterConsole();
+    } else {
+      showAuthOverlay();
+    }
+  }
+
+  function showAuthOverlay() {
+    el('authOverlay').classList.add('open');
+    el('mainConsole').style.display = 'none';
+  }
+
+  function setAuthMode(mode) {
+    state.authMode = mode;
+    el('authTitle').textContent = mode === 'login' ? 'Operator Login' : 'Register as Operator';
+    el('authSubmit').textContent = mode === 'login' ? 'Log in' : 'Register';
+    el('authDisplayNameField').style.display = mode === 'register' ? '' : 'none';
+    el('authSwitchText').textContent = mode === 'login' ? 'No account yet?' : 'Already have an account?';
+    el('authSwitchLink').textContent = mode === 'login' ? 'Register instead' : 'Log in instead';
+    el('authError').textContent = '';
+  }
+
+  function wireAuthForm() {
+    setAuthMode('login');
+    el('authSwitchLink').addEventListener('click', e => {
+      e.preventDefault();
+      setAuthMode(state.authMode === 'login' ? 'register' : 'login');
+    });
+    el('authSubmit').addEventListener('click', submitAuthForm);
+    [el('authUsername'), el('authPassword'), el('authDisplayName')].forEach(input => {
+      input.addEventListener('keydown', e => { if (e.key === 'Enter') submitAuthForm(); });
+    });
+  }
+
+  async function submitAuthForm() {
+    const username = el('authUsername').value.trim();
+    const password = el('authPassword').value;
+    const displayName = el('authDisplayName').value.trim();
+    const errorEl = el('authError');
+    errorEl.textContent = '';
+
+    const path = state.authMode === 'login' ? '/auth/login' : '/auth/register';
+    const body = state.authMode === 'login'
+      ? { username, password }
+      : { username, password, displayName: displayName || username };
+
+    try {
+      const res = await fetch('/api' + path, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(body)
+      });
+      const data = await res.json();
+      if (!res.ok) {
+        errorEl.textContent = data.error || 'Something went wrong.';
+        return;
+      }
+      state.operator = data;
+      el('authOverlay').classList.remove('open');
+      await enterConsole();
+    } catch (err) {
+      errorEl.textContent = 'Could not reach the server.';
+    }
+  }
+
+  async function logout() {
+    await api('/auth/logout', { method: 'POST' }).catch(() => {});
+    location.reload();
+  }
+
+  // ---------- Console setup (runs once logged in) ----------
+  async function enterConsole() {
+    el('mainConsole').style.display = '';
+    el('accountBadge').textContent = `Operator: ${state.operator.displayName}`;
+
     [state.books, state.versions, state.fontTable] = await Promise.all([
       api('/books'),
       api('/versions'),
       api('/font-settings')
     ]);
+
+    // Resume where this operator left off, if they've navigated before.
+    if (state.operator.lastBook && state.operator.lastChapter && state.operator.lastVerse) {
+      state.current = {
+        book: state.operator.lastBook,
+        chapter: state.operator.lastChapter,
+        verse: state.operator.lastVerse,
+        version: state.operator.lastVersion || state.current.version
+      };
+    }
 
     const versionSel = el('version');
     state.versions.forEach(v => versionSel.add(new Option(v.displayName, v.code)));
@@ -66,11 +156,13 @@
     el('topBtn').addEventListener('click', toggleFullscreen);
     el('minBtn').addEventListener('click', toggleToolbar);
     el('closeBtn').addEventListener('click', exitPresentation);
+    el('logoutBtn').addEventListener('click', logout);
 
     el('openPresenterBtn').addEventListener('click', () => {
-      window.open('/present', 'mcgi-presenter', 'noopener');
+      window.open(`/present?operator=${encodeURIComponent(state.operator.username)}`, 'mcgi-presenter', 'noopener');
     });
     loadNetworkInfo();
+    connectPresenceSocket();
 
     el('fsCloseX').addEventListener('click', closeFontSettings);
     el('fsCancel').addEventListener('click', closeFontSettings);
@@ -83,6 +175,17 @@
     document.addEventListener('fullscreenchange', () => setTimeout(fitText, 50));
 
     render();
+  }
+
+  // Keeps a lightweight WebSocket open purely so this operator shows up as
+  // "online" on the /operators picker page. Reconnects automatically.
+  function connectPresenceSocket() {
+    api('/auth/ws-token').then(({ token }) => {
+      const proto = location.protocol === 'https:' ? 'wss:' : 'ws:';
+      const ws = new WebSocket(`${proto}//${location.host}/ws?role=operator&token=${token}`);
+      ws.addEventListener('close', () => setTimeout(connectPresenceSocket, 3000));
+      ws.addEventListener('error', () => ws.close());
+    }).catch(() => setTimeout(connectPresenceSocket, 3000));
   }
 
   function debounce(fn, ms) {
@@ -373,8 +476,9 @@
     try {
       const info = await api('/network-info');
       const hint = el('presenterHint');
+      const opParam = `?operator=${encodeURIComponent(state.operator.username)}`;
       if (info.addresses && info.addresses.length) {
-        const url = `http://${info.addresses[0]}:${info.port}/present`;
+        const url = `http://${info.addresses[0]}:${info.port}/present${opParam}`;
         hint.innerHTML = `On another device (same WiFi): <code>${url}</code>`;
       } else {
         hint.textContent = 'On this computer: use the button above, or open /present in a second window.';
