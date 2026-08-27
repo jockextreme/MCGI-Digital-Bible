@@ -8,7 +8,7 @@
     autoResize: true,
     fontStep: 2,           // 1 small, 2 medium, 3 large — manual mode only
     fontTable: [],         // [{rangeIndex, minLength, maxLength, fontSize}]
-    operator: null,        // { id, username, displayName, lastVersion, lastBook, lastChapter, lastVerse }
+    operator: null,        // { id, locale, isPublic, lastVersion, lastBook, lastChapter, lastVerse }
     authMode: 'login'      // 'login' | 'register'
   };
   const FONT_SIZES = { 1: 34, 2: 40, 3: 46 };
@@ -50,11 +50,11 @@
 
   function setAuthMode(mode) {
     state.authMode = mode;
-    el('authTitle').textContent = mode === 'login' ? 'Operator Login' : 'Register as Operator';
-    el('authSubmit').textContent = mode === 'login' ? 'Log in' : 'Register';
-    el('authDisplayNameField').style.display = mode === 'register' ? '' : 'none';
-    el('authSwitchText').textContent = mode === 'login' ? 'No account yet?' : 'Already have an account?';
-    el('authSwitchLink').textContent = mode === 'login' ? 'Register instead' : 'Log in instead';
+    el('authTitle').textContent = mode === 'login' ? 'Operator Sign In' : 'Register a Locale';
+    el('authSubmit').textContent = mode === 'login' ? 'Sign In' : 'Register';
+    el('authVisibilityField').style.display = mode === 'register' ? '' : 'none';
+    el('authSwitchText').textContent = mode === 'login' ? 'No locale registered yet?' : 'Already have one?';
+    el('authSwitchLink').textContent = mode === 'login' ? 'Register one' : 'Sign in instead';
     el('authError').textContent = '';
   }
 
@@ -65,22 +65,22 @@
       setAuthMode(state.authMode === 'login' ? 'register' : 'login');
     });
     el('authSubmit').addEventListener('click', submitAuthForm);
-    [el('authUsername'), el('authPassword'), el('authDisplayName')].forEach(input => {
+    [el('authLocale'), el('authPassword')].forEach(input => {
       input.addEventListener('keydown', e => { if (e.key === 'Enter') submitAuthForm(); });
     });
   }
 
   async function submitAuthForm() {
-    const username = el('authUsername').value.trim();
+    const locale = el('authLocale').value.trim();
     const password = el('authPassword').value;
-    const displayName = el('authDisplayName').value.trim();
+    const isPublic = (document.querySelector('input[name="authVisibility"]:checked') || {}).value !== 'private';
     const errorEl = el('authError');
     errorEl.textContent = '';
 
     const path = state.authMode === 'login' ? '/auth/login' : '/auth/register';
     const body = state.authMode === 'login'
-      ? { username, password }
-      : { username, password, displayName: displayName || username };
+      ? { locale, password }
+      : { locale, password, isPublic };
 
     try {
       const res = await fetch('/api' + path, {
@@ -101,6 +101,26 @@
     }
   }
 
+  function updateAccountBadge() {
+    el('accountBadge').textContent = `${state.operator.locale} · ${state.operator.isPublic ? 'Public' : 'Private'}`;
+    el('toggleVisibilityBtn').textContent = state.operator.isPublic ? 'Make Private' : 'Make Public';
+  }
+
+  async function toggleVisibility() {
+    try {
+      const updated = await api('/auth/visibility', {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ isPublic: !state.operator.isPublic })
+      });
+      state.operator = updated;
+      updateAccountBadge();
+      showToast(state.operator.isPublic ? 'Now listed on the homepage.' : 'Now private — direct link only.');
+    } catch (err) {
+      showToast('Could not update visibility.');
+    }
+  }
+
   async function logout() {
     await api('/auth/logout', { method: 'POST' }).catch(() => {});
     location.reload();
@@ -109,7 +129,7 @@
   // ---------- Console setup (runs once logged in) ----------
   async function enterConsole() {
     el('mainConsole').style.display = '';
-    el('accountBadge').textContent = `Operator: ${state.operator.displayName}`;
+    updateAccountBadge();
 
     [state.books, state.versions, state.fontTable] = await Promise.all([
       api('/books'),
@@ -157,9 +177,10 @@
     el('minBtn').addEventListener('click', toggleToolbar);
     el('closeBtn').addEventListener('click', exitPresentation);
     el('logoutBtn').addEventListener('click', logout);
+    el('toggleVisibilityBtn').addEventListener('click', toggleVisibility);
 
     el('openPresenterBtn').addEventListener('click', () => {
-      window.open(`/present?operator=${encodeURIComponent(state.operator.username)}`, 'mcgi-presenter', 'noopener');
+      window.open(`/present?operator=${encodeURIComponent(state.operator.locale)}`, 'mcgi-presenter', 'noopener');
     });
     loadNetworkInfo();
     connectPresenceSocket();
@@ -291,7 +312,21 @@
         return;
       }
     }
-    alert('Type it like: John 3:16 or I Corinto 1:22');
+    showToast('Type it like: John 3:16 or I Corinto 1:22');
+  }
+
+  function showToast(message, duration) {
+    const stack = el('toastStack');
+    if (!stack) { console.log(message); return; }
+    const toast = document.createElement('div');
+    toast.className = 'toast';
+    toast.textContent = message;
+    stack.appendChild(toast);
+    requestAnimationFrame(() => toast.classList.add('show'));
+    setTimeout(() => {
+      toast.classList.remove('show');
+      setTimeout(() => toast.remove(), 250);
+    }, duration || 3000);
   }
 
   // ---------- Auto-resize (matches the app's Font Setting table) ----------
@@ -476,7 +511,7 @@
     try {
       const info = await api('/network-info');
       const hint = el('presenterHint');
-      const opParam = `?operator=${encodeURIComponent(state.operator.username)}`;
+      const opParam = `?operator=${encodeURIComponent(state.operator.locale)}`;
       if (info.addresses && info.addresses.length) {
         const url = `http://${info.addresses[0]}:${info.port}/present${opParam}`;
         hint.innerHTML = `On another device (same WiFi): <code>${url}</code>`;
