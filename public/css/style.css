@@ -68,10 +68,8 @@ body{
   border-radius:var(--radius-xl);
   border:4px solid var(--gold);
   overflow:hidden;
-  box-shadow:var(--shadow-lg), inset 0 0 0 1px rgba(255,255,255,0.04);
-  background-image:
-    linear-gradient(155deg, rgba(6,14,42,0.94) 0%, rgba(10,22,60,0.90) 45%, rgba(6,14,42,0.94) 100%),
-    radial-gradient(120% 140% at 75% 20%, rgba(224,168,60,0.10), transparent 55%);
+  background-color:#081226;
+  background-image:url('/img/background.jpg');
   background-size:cover;
   background-position:center;
   animation:cardIn .5s var(--ease);
