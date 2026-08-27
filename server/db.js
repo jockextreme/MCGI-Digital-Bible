@@ -66,6 +66,8 @@ function initSchema() {
       display_name TEXT NOT NULL,
       password_hash TEXT NOT NULL,
       password_salt TEXT NOT NULL,
+      is_public INTEGER NOT NULL DEFAULT 1,
+      last_active_at TEXT NOT NULL DEFAULT (datetime('now')),
       last_version TEXT,
       last_book TEXT,
       last_chapter INTEGER,
@@ -73,6 +75,15 @@ function initSchema() {
       created_at TEXT NOT NULL DEFAULT (datetime('now'))
     );
   `);
+
+  // Lightweight migration for databases created before is_public/last_active_at existed.
+  const cols = db.prepare(`PRAGMA table_info(operators)`).all().map(c => c.name);
+  if (!cols.includes('is_public')) {
+    db.exec(`ALTER TABLE operators ADD COLUMN is_public INTEGER NOT NULL DEFAULT 1`);
+  }
+  if (!cols.includes('last_active_at')) {
+    db.exec(`ALTER TABLE operators ADD COLUMN last_active_at TEXT NOT NULL DEFAULT (datetime('now'))`);
+  }
 }
 
 initSchema();
