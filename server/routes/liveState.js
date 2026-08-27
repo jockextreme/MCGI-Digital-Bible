@@ -1,6 +1,7 @@
 const express = require('express');
 const db = require('../db');
 const liveState = require('../liveState');
+const { touchActivity } = require('../cleanup');
 
 const router = express.Router();
 
@@ -32,6 +33,7 @@ router.post('/', (req, res) => {
     return res.status(400).json({ error: 'book, chapter, and verse are required' });
   }
   const payload = liveState.setReference(username, { version, book, chapter, verse });
+  touchActivity(username);
 
   db.prepare(`
     UPDATE operators SET last_version = ?, last_book = ?, last_chapter = ?, last_verse = ?
