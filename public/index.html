@@ -3,129 +3,179 @@
 <head>
 <meta charset="UTF-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-<title>MCGI Digital Bible — Presentation</title>
+<title>MCGI Digital Bible</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&display=swap" rel="stylesheet">
 <link rel="stylesheet" href="css/style.css">
+<style>
+  body{ align-items:stretch; }
+  .home-shell{ width:100%; max-width:1100px; margin:0 auto; padding:48px 24px 60px; }
+
+  .home-header{
+    display:flex; align-items:center; justify-content:space-between; gap:16px;
+    flex-wrap:wrap; margin-bottom:36px;
+  }
+  .home-brand{ display:flex; align-items:center; gap:12px; }
+  .home-brand .mark{
+    width:42px; height:42px; border-radius:50%;
+    background:radial-gradient(circle at 35% 30%, #2a3d7a, #0c1636 75%);
+    border:2px solid var(--gold); display:flex; align-items:center; justify-content:center;
+    font-weight:800; font-size:11px; color:var(--gold-soft);
+  }
+  .home-brand h1{ font-size:19px; font-weight:800; margin:0; letter-spacing:-.01em; }
+  .home-cta{
+    display:inline-flex; align-items:center; gap:8px;
+    background:linear-gradient(180deg,var(--gold-soft),var(--gold));
+    color:#241a00; font-weight:700; font-size:13px;
+    padding:10px 18px; border-radius:999px; text-decoration:none;
+    box-shadow:var(--shadow-sm);
+    transition:transform .18s cubic-bezier(.4,0,.2,1);
+  }
+  .home-cta:hover{ transform:translateY(-1px); }
+
+  .home-hero{ margin-bottom:40px; }
+  .home-hero h2{
+    font-size:clamp(26px,4vw,40px); font-weight:800; letter-spacing:-.01em;
+    margin:0 0 8px; line-height:1.15;
+  }
+  .home-hero p{ color:#a9b6e0; font-size:15px; margin:0; max-width:60ch; line-height:1.6; }
+
+  .op-grid{
+    display:grid; grid-template-columns:repeat(auto-fill, minmax(280px, 1fr));
+    gap:18px;
+  }
+
+  .op-card{
+    display:block; text-decoration:none; color:#fff;
+    background:rgba(255,255,255,0.04);
+    border:1px solid rgba(224,168,60,0.22);
+    border-radius:18px; overflow:hidden;
+    transition:transform .18s cubic-bezier(.4,0,.2,1), border-color .18s cubic-bezier(.4,0,.2,1), box-shadow .18s cubic-bezier(.4,0,.2,1);
+  }
+  .op-card:hover{
+    transform:translateY(-3px); border-color:rgba(224,168,60,0.55);
+    box-shadow:0 16px 36px rgba(0,0,0,0.35);
+  }
+
+  .op-thumb{
+    position:relative; aspect-ratio:16/9; padding:18px;
+    display:flex; flex-direction:column; justify-content:flex-end;
+    background-image:
+      linear-gradient(155deg, rgba(6,14,42,0.92) 0%, rgba(10,22,60,0.86) 45%, rgba(6,14,42,0.92) 100%),
+      radial-gradient(120% 140% at 75% 20%, rgba(224,168,60,0.12), transparent 55%);
+  }
+  .op-thumb .op-live{
+    position:absolute; top:12px; left:12px;
+    display:flex; align-items:center; gap:6px;
+    background:rgba(190,32,32,0.92); color:#fff; font-size:10.5px; font-weight:800;
+    letter-spacing:.04em; text-transform:uppercase;
+    padding:4px 9px; border-radius:5px;
+  }
+  .op-thumb .op-live .dot{
+    width:6px; height:6px; border-radius:50%; background:#fff;
+    animation:blink 1.4s infinite;
+  }
+  @keyframes blink{ 50%{ opacity:.3; } }
+
+  .op-thumb .op-ref{
+    font-size:14px; font-weight:800; text-shadow:0 2px 8px rgba(0,0,0,.5);
+    margin:0 0 3px;
+  }
+  .op-thumb .op-version{
+    font-size:11px; font-weight:700; font-style:italic; color:var(--yellow);
+    text-shadow:0 2px 8px rgba(0,0,0,.5); margin:0 0 8px;
+  }
+  .op-thumb .op-snippet{
+    font-size:12px; line-height:1.4; color:#dfe4f5;
+    display:-webkit-box; -webkit-line-clamp:2; -webkit-box-orient:vertical; overflow:hidden;
+  }
+
+  .op-meta{
+    padding:12px 14px; display:flex; align-items:center; justify-content:space-between; gap:10px;
+  }
+  .op-meta .name{ font-weight:700; font-size:13.5px; }
+  .op-meta .go{ font-size:11.5px; color:var(--gold-soft); font-weight:700; white-space:nowrap; }
+
+  .empty-state{
+    color:#a9b6e0; font-size:14px; background:rgba(255,255,255,0.04);
+    border:1px solid rgba(255,255,255,0.08);
+    border-radius:14px; padding:36px 20px; text-align:center; line-height:1.7;
+    grid-column:1/-1;
+  }
+  .empty-state a{ color:var(--gold-soft); font-weight:700; text-decoration:none; }
+  .empty-state a:hover{ text-decoration:underline; }
+
+  .refresh-note{ margin-top:24px; font-size:11.5px; color:#7683ab; text-align:center; }
+</style>
 </head>
 <body>
-
-  <div class="fs-overlay open" id="authOverlay">
-    <div class="fs-dialog auth-dialog">
-      <div class="fs-titlebar">
-        <span id="authTitle">Operator Login</span>
+  <div class="home-shell">
+    <div class="home-header">
+      <div class="home-brand">
+        <div class="mark">MCGI</div>
+        <h1>MCGI Digital Bible</h1>
       </div>
-      <div class="fs-body">
-        <div class="auth-field">
-          <label>Username</label>
-          <input type="text" id="authUsername" autocomplete="username" />
-        </div>
-        <div class="auth-field" id="authDisplayNameField" style="display:none;">
-          <label>Display name</label>
-          <input type="text" id="authDisplayName" />
-        </div>
-        <div class="auth-field">
-          <label>Password</label>
-          <input type="password" id="authPassword" autocomplete="current-password" />
-        </div>
-        <div class="auth-error" id="authError"></div>
-        <div class="fs-actions">
-          <button class="fs-btn" id="authSubmit">Log in</button>
-        </div>
-        <div class="auth-switch">
-          <span id="authSwitchText">No account yet?</span>
-          <a href="#" id="authSwitchLink">Register instead</a>
-        </div>
-      </div>
+      <a class="home-cta" href="/console">Operator Sign In →</a>
     </div>
-  </div>
 
-  <div id="mainConsole" style="display:none;">
-
-  <div class="stage-shell">
-    <div class="card" id="card">
-      <div class="logo-badge" aria-hidden="true">MCGI</div>
-      <div class="card-inner">
-        <p class="ref" id="stageRef">GENESIS 1:1</p>
-        <p class="version-label" id="stageVersion">ANG DATING BIBLIA</p>
-        <div class="verse-body">
-          <p id="stageText">Loading…</p>
-        </div>
-        <div class="crossrefs" id="crossrefs"></div>
-      </div>
+    <div class="home-hero">
+      <h2>Watch a service's verse feed, live.</h2>
+      <p>Every congregation that's currently broadcasting shows up below with a live preview — pick one to follow along in real time, right in your browser.</p>
     </div>
-  </div>
 
-  <div class="toolbar">
-    <input type="text" id="jumpBox" placeholder="Go to e.g. John 3:16" />
-    <select id="version"></select>
-    <button class="navbtn" id="prevBtn">Previous</button>
-    <button class="navbtn" id="nextBtn">Next</button>
-    <select id="chapterJump" title="Jump to book"></select>
-
-    <div class="spacer"></div>
-
-    <div class="tools">
-      <button id="arBtn" class="active" title="Auto-resize text to fit">AR</button>
-      <button title="Reserved">D</button>
-      <button id="fontBtn" title="Cycle text size">A</button>
-      <button title="Reserved">BV</button>
-      <button title="Reserved">V</button>
-      <button title="Reserved">H</button>
-      <button id="searchBtn" title="Search verses">Search</button>
-      <button title="Reserved">C</button>
-      <button id="sBtn" title="Font Setting">S</button>
-      <button title="Reserved">BF</button>
-      <button title="Reserved">BI</button>
-      <button id="refreshBtn" title="Refresh">⟳</button>
-      <button id="topBtn" title="Toggle fullscreen">TOP</button>
-      <button id="minBtn" title="Minimize toolbar">_</button>
-      <button class="close" id="closeBtn" title="Exit presentation">X</button>
+    <div class="op-grid" id="opGrid">
+      <div class="empty-state">Loading…</div>
     </div>
+    <div class="refresh-note">This list refreshes automatically every few seconds.</div>
   </div>
 
-  <div class="presenter-panel">
-    <span class="account-badge" id="accountBadge"></span>
-    <button class="navbtn" id="openPresenterBtn">Open Presenter Display ↗</button>
-    <span class="presenter-hint" id="presenterHint"></span>
-    <button class="navbtn" id="logoutBtn">Log out</button>
-  </div>
+  <script>
+    function escapeHtml(s) {
+      return (s || '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+    }
 
-  </div>
+    async function loadOperators() {
+      const grid = document.getElementById('opGrid');
+      try {
+        const res = await fetch('/api/operators/online');
+        const operators = await res.json();
 
-  <div class="fs-overlay" id="fsOverlay">
-    <div class="fs-dialog">
-      <div class="fs-titlebar">
-        <span>Font Setting</span>
-        <button id="fsCloseX">✕</button>
-      </div>
-      <div class="fs-body">
-        <div class="fs-columns">
-          <div class="fs-col" id="fsColLeft"></div>
-          <div class="fs-col" id="fsColRight"></div>
-        </div>
-        <div class="fs-rule"></div>
-        <div class="fs-actions">
-          <button class="fs-btn" id="fsSave">OK</button>
-          <button class="fs-btn" id="fsCancel">Cancel</button>
-        </div>
-        <div class="fs-current" id="fsCurrent">Current Content Length: 0</div>
-      </div>
-    </div>
-  </div>
+        if (!operators.length) {
+          grid.innerHTML = `<div class="empty-state">
+            No one is broadcasting right now.<br>
+            Are you an operator? <a href="/console">Sign in and start one</a>.
+          </div>`;
+          return;
+        }
 
-  <div class="fs-overlay" id="searchOverlay">
-    <div class="fs-dialog search-dialog">
-      <div class="fs-titlebar">
-        <span>Search</span>
-        <button id="searchCloseX">✕</button>
-      </div>
-      <div class="fs-body">
-        <input type="text" id="searchInput" class="search-input" placeholder="Type a word or phrase…" />
-        <div class="search-meta" id="searchMeta"></div>
-        <div class="search-results" id="searchResults"></div>
-      </div>
-    </div>
-  </div>
+        grid.innerHTML = operators.map(op => {
+          const p = op.preview;
+          const ref = p ? escapeHtml(p.reference) : '';
+          const version = p ? escapeHtml(p.versionDisplayName || '') : '';
+          const snippet = p && p.text ? escapeHtml(p.text) : 'No verse shown yet.';
+          return `
+            <a class="op-card" href="/present?operator=${encodeURIComponent(op.locale)}">
+              <div class="op-thumb">
+                <span class="op-live"><span class="dot"></span>Live</span>
+                ${ref ? `<p class="op-ref">${ref}</p>` : ''}
+                ${version ? `<p class="op-version">${version}</p>` : ''}
+                <p class="op-snippet">${snippet}</p>
+              </div>
+              <div class="op-meta">
+                <span class="name">${escapeHtml(op.locale)}</span>
+                <span class="go">Watch →</span>
+              </div>
+            </a>
+          `;
+        }).join('');
+      } catch (err) {
+        grid.innerHTML = '<div class="empty-state">Could not load the list — is the server running?</div>';
+      }
+    }
 
-  <script src="js/app.js"></script>
+    loadOperators();
+    setInterval(loadOperators, 4000);
+  </script>
 </body>
 </html>

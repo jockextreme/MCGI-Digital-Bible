@@ -1,0 +1,150 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>MCGI Digital Bible — Presentation</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+
+  <div class="toast-stack" id="toastStack"></div>
+
+  <div class="fs-overlay open" id="authOverlay">
+    <div class="fs-dialog auth-dialog">
+      <div class="fs-titlebar">
+        <span id="authTitle">Operator Sign In</span>
+      </div>
+      <div class="fs-body">
+        <div class="auth-field">
+          <label id="authLocaleLabel">What is your locale?</label>
+          <input type="text" id="authLocale" placeholder="e.g. Ugong" autocomplete="username" />
+        </div>
+
+        <div class="auth-field" id="authVisibilityField" style="display:none;">
+          <label>Visibility</label>
+          <div class="auth-visibility">
+            <label class="auth-radio">
+              <input type="radio" name="authVisibility" value="public" checked />
+              <span><strong>Public</strong> — listed on the homepage for anyone to find</span>
+            </label>
+            <label class="auth-radio">
+              <input type="radio" name="authVisibility" value="private" />
+              <span><strong>Private</strong> — only reachable if someone has your direct link</span>
+            </label>
+          </div>
+        </div>
+
+        <div class="auth-field">
+          <label>Password</label>
+          <input type="password" id="authPassword" placeholder="e.g. Test123" autocomplete="current-password" />
+          <p class="auth-help">At least 6 characters.</p>
+        </div>
+
+        <div class="auth-error" id="authError"></div>
+        <div class="fs-actions">
+          <button class="fs-btn" id="authSubmit">Sign In</button>
+        </div>
+        <div class="auth-switch">
+          <span id="authSwitchText">No locale registered yet?</span>
+          <a href="#" id="authSwitchLink">Register one</a>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div id="mainConsole" style="display:none;">
+
+  <div class="stage-shell">
+    <div class="card" id="card">
+      <div class="logo-badge" aria-hidden="true">MCGI</div>
+      <div class="card-inner">
+        <p class="ref" id="stageRef">GENESIS 1:1</p>
+        <p class="version-label" id="stageVersion">ANG DATING BIBLIA</p>
+        <div class="verse-body">
+          <p id="stageText">Loading…</p>
+        </div>
+        <div class="crossrefs" id="crossrefs"></div>
+      </div>
+    </div>
+  </div>
+
+  <div class="toolbar">
+    <input type="text" id="jumpBox" placeholder="Go to e.g. John 3:16" />
+    <select id="version"></select>
+    <button class="navbtn" id="prevBtn">Previous</button>
+    <button class="navbtn" id="nextBtn">Next</button>
+    <select id="chapterJump" title="Jump to book"></select>
+
+    <div class="spacer"></div>
+
+    <div class="tools">
+      <button id="arBtn" class="active" title="Auto-resize text to fit">AR</button>
+      <button title="Reserved">D</button>
+      <button id="fontBtn" title="Cycle text size">A</button>
+      <button title="Reserved">BV</button>
+      <button title="Reserved">V</button>
+      <button title="Reserved">H</button>
+      <button id="searchBtn" title="Search verses">Search</button>
+      <button title="Reserved">C</button>
+      <button id="sBtn" title="Font Setting">S</button>
+      <button title="Reserved">BF</button>
+      <button title="Reserved">BI</button>
+      <button id="refreshBtn" title="Refresh">⟳</button>
+      <button id="topBtn" title="Toggle fullscreen">TOP</button>
+      <button id="minBtn" title="Minimize toolbar">_</button>
+      <button class="close" id="closeBtn" title="Exit presentation">X</button>
+    </div>
+  </div>
+
+  <div class="presenter-panel">
+    <span class="account-badge" id="accountBadge"></span>
+    <button class="navbtn" id="toggleVisibilityBtn">Make Private</button>
+    <button class="navbtn" id="openPresenterBtn">Open Presenter Display ↗</button>
+    <span class="presenter-hint" id="presenterHint"></span>
+    <button class="navbtn" id="logoutBtn">Log out</button>
+  </div>
+
+  </div>
+
+  <div class="fs-overlay" id="fsOverlay">
+    <div class="fs-dialog">
+      <div class="fs-titlebar">
+        <span>Font Setting</span>
+        <button id="fsCloseX">✕</button>
+      </div>
+      <div class="fs-body">
+        <div class="fs-columns">
+          <div class="fs-col" id="fsColLeft"></div>
+          <div class="fs-col" id="fsColRight"></div>
+        </div>
+        <div class="fs-rule"></div>
+        <div class="fs-actions">
+          <button class="fs-btn" id="fsSave">OK</button>
+          <button class="fs-btn" id="fsCancel">Cancel</button>
+        </div>
+        <div class="fs-current" id="fsCurrent">Current Content Length: 0</div>
+      </div>
+    </div>
+  </div>
+
+  <div class="fs-overlay" id="searchOverlay">
+    <div class="fs-dialog search-dialog">
+      <div class="fs-titlebar">
+        <span>Search</span>
+        <button id="searchCloseX">✕</button>
+      </div>
+      <div class="fs-body">
+        <input type="text" id="searchInput" class="search-input" placeholder="Type a word or phrase…" />
+        <div class="search-meta" id="searchMeta"></div>
+        <div class="search-results" id="searchResults"></div>
+      </div>
+    </div>
+  </div>
+
+  <script src="js/app.js"></script>
+</body>
+</html>

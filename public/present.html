@@ -4,24 +4,31 @@
 <meta charset="UTF-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1.0" />
 <title>MCGI Digital Bible — Presenter</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&display=swap" rel="stylesheet">
 <link rel="stylesheet" href="css/style.css">
 <style>
   /* Presenter view has no toolbar — the card fills the whole window. */
   .stage-shell{ padding:1.6vw; }
   .conn-badge{
-    position:fixed; top:14px; right:18px; z-index:10;
-    font-family:Arial, Helvetica, sans-serif; font-size:11px;
-    color:#cbd5f5; background:rgba(0,0,0,0.35); padding:4px 10px;
-    border-radius:20px; opacity:0.7;
+    position:fixed; top:16px; right:20px; z-index:10;
+    font-size:11px; font-weight:600;
+    color:#dce6ff; background:rgba(4,8,20,0.55); backdrop-filter:blur(6px);
+    padding:6px 14px; border-radius:999px; opacity:0.85;
+    border:1px solid rgba(224,168,60,0.3);
+    transition:opacity .18s cubic-bezier(.4,0,.2,1);
   }
-  .conn-badge.connected{ display:none; }
+  .conn-badge.connected{ opacity:0; pointer-events:none; }
   .version-mode{
-    position:fixed; bottom:14px; left:18px; z-index:10;
-    font-family:Arial, Helvetica, sans-serif; font-size:11px;
+    position:fixed; bottom:16px; left:20px; z-index:10;
   }
   .version-mode select{
-    background:rgba(0,0,0,0.4); color:#dce6ff; border:1px solid rgba(224,168,60,0.4);
-    border-radius:20px; padding:4px 10px; font-size:11px; opacity:0.6;
+    background:rgba(4,8,20,0.55); backdrop-filter:blur(6px); color:#dce6ff;
+    border:1px solid rgba(224,168,60,0.35);
+    border-radius:999px; padding:6px 14px; font-size:11px; font-weight:600;
+    opacity:0.7; cursor:pointer;
+    transition:opacity .18s cubic-bezier(.4,0,.2,1);
   }
   .version-mode select:hover, .version-mode select:focus{ opacity:1; }
 </style>
