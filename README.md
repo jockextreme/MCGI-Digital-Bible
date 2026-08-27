@@ -33,7 +33,9 @@ npm run seed       # builds data/bible.db from the two Bible datasets
 npm start          # starts the server
 ```
 
-Then open **http://localhost:3000** in a browser.
+Then open **http://localhost:3000** for the public homepage (who's live
+right now), or **http://localhost:3000/console** to sign in/register and run
+a service yourself.
 
 `npm run seed` is safe to re-run any time — it rebuilds the relevant tables
 from scratch (useful if you add more translations later).
@@ -52,6 +54,7 @@ mcgi-digital-bible/
 │   ├── index.js              Express app entrypoint + WebSocket routing
 │   ├── db.js                 SQLite connection + schema
 │   ├── auth.js                password hashing (Node's built-in crypto.scrypt)
+│   ├── cleanup.js              inactivity auto-deletion job (90-day default)
 │   ├── liveState.js           per-operator "room" state + WebSocket broadcast
 │   ├── wsTokens.js            short-lived tokens for authenticating operator WS connections
 │   ├── verseLookup.js         shared verse-fetching logic
@@ -70,31 +73,45 @@ mcgi-digital-bible/
 │       ├── adb.json          Ang Dating Biblia full text (public domain)
 │       └── kjv.json          King James Version full text (public domain)
 ├── public/                   the frontend (served statically by Express)
-│   ├── index.html / js/app.js         Operator console (login-gated)
-│   ├── operators.html                  "Choose an operator" picker for viewers
-│   ├── present.html / js/present.js    Audience/viewer display
+│   ├── index.html                      Homepage — public directory + live previews
+│   ├── console.html / js/app.js        Operator console (login-gated, at /console)
+│   ├── present.html / js/present.js    Audience/viewer display (at /present)
 │   ├── css/style.css
 │   └── img/                            drop logo.png / background.jpg here
 └── data/
     └── bible.db              created by `npm run seed` (gitignored)
 ```
 
-## Operator accounts & multiple simultaneous operators
+## Homepage, operator accounts & multiple simultaneous operators
 
-The console (`/`) now requires logging in — register with any
-username/password right on that page (no admin approval step, no email
-verification; this is meant for your own team, not the general public). What
-this buys you:
+**The homepage (`/`) is now a public directory**, styled like a video
+platform's homepage: every **public** operator who's currently broadcasting
+shows up as a card with a live preview (current reference, version, and a
+snippet of the verse text), refreshing automatically. Anyone can browse it
+without logging in — click a card to open that operator's presenter view.
 
+**The operator console moved to `/console`.** That's where you register/log
+in and actually run a service. Open signup, no admin approval, no email
+verification — meant for your own team/congregations, not gated.
+
+Instead of a generic username, operators register with a **locale** — a
+place name like "Ugong" or "San Juan" — since that's what actually
+identifies a congregation/service in this context. At registration you also
+choose:
+- **Public** — shown on the homepage directory for anyone to find.
+- **Private** — not listed anywhere; only reachable if someone has your
+  direct `/present?operator=<locale>` link. Toggle this anytime from the
+  console (top bar, next to your account badge).
+
+What accounts buy you:
 - **Each operator has their own independent "room."** Two people can run
   two completely separate services at the same time (e.g. a Tagalog service
   and an English service) without interfering with each other.
 - **Resume where you left off.** Your last book/chapter/verse/version is
   saved automatically every time you navigate, and restored the next time
   you log in.
-- **Viewers pick which operator to follow.** `/operators` lists everyone
-  currently online (i.e. currently has their console open) — click one to
-  open their presenter view (`/present?operator=<username>`).
+- **Viewers pick which operator to follow** from the homepage, or go
+  straight to `/present?operator=<locale>` if they already know it.
 
 Passwords are hashed with Node's built-in `crypto.scrypt` (no extra
 dependency). Sessions use `express-session` with its default in-memory
@@ -104,20 +121,29 @@ deployments. If this ever needs to scale beyond a handful of operators or
 run across multiple server instances, swap in a real session store (e.g.
 `connect-sqlite3` or Redis).
 
+### Inactivity cleanup
+
+Operator accounts that haven't been active (logged in, or posted a
+live-state update) in **90 days** are automatically deleted — a cleanup job
+runs once on server boot and then once every 24 hours
+(`server/cleanup.js`). This keeps stale/abandoned locale names from
+squatting on the directory forever. Adjust the threshold with the
+`INACTIVITY_DELETE_DAYS` environment variable.
+
 ## Presenter/Audience split view
 
-The **presenter view** (`/present?operator=<username>`) is a clean, no-
+The **presenter view** (`/present?operator=<locale>`) is a clean, no-
 controls display meant for the projector/TV, kept in sync in real time over
 WebSocket: whenever that operator navigates to a new verse, every viewer
 watching them updates instantly.
 
 Works for both setups:
 - **One laptop, extended display** — click "Open Presenter Display" on the
-  control page (this automatically includes your own username in the
+  console page (this automatically includes your own locale in the
   link), drag that new window to the projector/second monitor, make it
   fullscreen (the **TOP** button toggles fullscreen).
-- **Two different devices, same WiFi** — the control page shows a LAN URL
-  under the toolbar, already including your operator name.
+- **Two different devices, same WiFi** — the console page shows a LAN URL
+  under the toolbar, already including your operator locale.
 
 ### Auto vs Manual Version Mode (viewer-side)
 
@@ -134,7 +160,7 @@ bottom-left corner:
   operator. This choice is remembered per-operator in the viewer's own
   browser (`localStorage`), not on the server.
 
-Under the hood: the server keeps one "room" per operator username in memory
+Under the hood: the server keeps one "room" per operator locale in memory
 (`server/liveState.js`), each with its own current reference and its own set
 of connected viewer sockets. The operator's console POSTs to
 `/api/live-state` whenever it navigates; the server resolves the verse text
@@ -153,7 +179,7 @@ swap in a real logo:
 
 1. Put your logo file at `public/img/logo.png` (transparent background works best).
 2. Replace `<div class="logo-badge" aria-hidden="true">MCGI</div>` in both
-   `public/index.html` and `public/present.html` with:
+   `public/console.html` and `public/present.html` with:
    ```html
    <img class="logo-badge" src="/img/logo.png" alt="MCGI logo" />
    ```
@@ -170,12 +196,14 @@ swap in a real logo:
 - `GET /api/search?version=ADB&q=pag-ibig` — full-text search, ranked, capped at 60 results.
 - `GET /api/font-settings` — the 14-row content-length → font-size table.
 - `PUT /api/font-settings` — body `[{ rangeIndex, fontSize }, ...]`, persists edits.
-- `POST /api/auth/register` — body `{ username, password, displayName }`, logs you in immediately.
-- `POST /api/auth/login` / `POST /api/auth/logout`
+- `POST /api/auth/register` — body `{ locale, password, isPublic }`, logs you in immediately.
+- `POST /api/auth/login` — body `{ locale, password }` (locale match is case-insensitive).
+- `POST /api/auth/logout`
 - `GET /api/auth/me` — current session's operator, or `null`.
-- `GET /api/auth/ws-token` — short-lived token for the operator's own WebSocket presence connection.
-- `GET /api/operators/online` — currently-online operators, for the `/operators` picker page.
-- `GET /api/live-state?operator=username` — an operator's current reference.
+- `PUT /api/auth/visibility` — body `{ isPublic }`, toggle public/private anytime.
+- `GET /api/auth/ws-token` — one-time token for the operator's authenticated WebSocket connection.
+- `GET /api/operators/online` — **public** operators currently broadcasting, each with a live preview (reference, version, text snippet). Powers the homepage.
+- `GET /api/live-state?operator=<locale>` — an operator's current reference.
 - `POST /api/live-state` — (requires login) body `{ version, book, chapter, verse }`; updates and broadcasts the logged-in operator's own room, and saves it as their resume point.
 
 ## Bible text data
