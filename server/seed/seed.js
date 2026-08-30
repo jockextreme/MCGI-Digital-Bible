@@ -51,7 +51,22 @@ const VERSIONS = [
   { code: 'AB1982', display_name: 'ANG BIBLIA 1982', language: 'tl', dataFile: null },
   { code: 'ABAB', display_name: 'ANG BAGONG ANG BIBLIA', language: 'tl', dataFile: null },
   { code: 'AKJV', display_name: 'AMERICAN KING JAMES VERSION', language: 'en', dataFile: null },
-  { code: 'KJV', display_name: 'KING JAMES VERSION', language: 'en', dataFile: 'kjv.json' }
+  { code: 'KJV', display_name: 'KING JAMES VERSION', language: 'en', dataFile: 'kjv.json' },
+  // Requested but not addable yet — see README "Bible text data" for why:
+  // NIV, ESV, and NKJV are actively copyrighted (Biblica, Crossway, Thomas
+  // Nelson) and can't legally have full text embedded without a license.
+  // "KJV 1611" (true original spelling, not the common 1769 Oxford revision
+  // everyone actually calls "KJV") exists on Wikisource but only as scanned
+  // pages/wiki markup, not clean structured verse data — would need real
+  // parsing work, not just a straight text pull.
+  // "KJV (MCGI Modified)" is presumably MCGI's own internal edit and isn't
+  // publicly available anywhere I can source from.
+  { code: 'KJV1611', display_name: 'KING JAMES VERSION 1611', language: 'en', dataFile: null },
+  { code: 'NKJV', display_name: 'NEW KING JAMES VERSION', language: 'en', dataFile: null },
+  { code: 'NIV', display_name: 'NEW INTERNATIONAL VERSION', language: 'en', dataFile: null },
+  { code: 'ESV', display_name: 'ENGLISH STANDARD VERSION', language: 'en', dataFile: null },
+  { code: 'KJVMCGI', display_name: 'KING JAMES VERSION (MCGI MODIFIED)', language: 'en', dataFile: null },
+  { code: 'RV1909', display_name: 'REINA-VALERA 1909', language: 'es', dataFile: 'rv1909.json' }
 ];
 
 // Matches the real app's "Font Setting" dialog exactly.
