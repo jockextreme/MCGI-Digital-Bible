@@ -3,11 +3,41 @@
 <head>
 <meta charset="UTF-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-<title>MCGI Digital Bible — Presentation</title>
+<title>MCGI Digital Bible — Console</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&display=swap" rel="stylesheet">
 <link rel="stylesheet" href="css/style.css">
+<style>
+  /* The console isn't a fullscreen display — it's a control room. The
+     preview should be clearly visible but bounded, not competing for space
+     with three rows of controls underneath it. */
+  body{ align-items:stretch; }
+  .console-shell{ width:100%; max-width:1040px; margin:0 auto; padding:20px 20px 40px; }
+
+  .top-bar{
+    display:flex; align-items:center; gap:10px; flex-wrap:wrap;
+    padding-bottom:16px; margin-bottom:20px; border-bottom:1px solid rgba(224,168,60,0.18);
+  }
+
+  .preview-label{
+    font-size:11px; font-weight:700; letter-spacing:.06em; text-transform:uppercase;
+    color:#8b98c4; margin:0 0 8px;
+  }
+  .stage-shell{
+    flex:none; padding:0; width:100%; aspect-ratio:16/9;
+    max-height:52vh;
+  }
+  .card{ box-shadow:var(--shadow-md); }
+
+  .console-section{ margin-top:22px; }
+  .section-label{
+    font-size:11px; font-weight:700; letter-spacing:.06em; text-transform:uppercase;
+    color:#8b98c4; margin:0 0 10px;
+  }
+  .console-section .toolbar{ padding:0; }
+  .console-section .presenter-panel{ padding:0; }
+</style>
 </head>
 <body>
 
@@ -57,64 +87,80 @@
   </div>
 
   <div id="mainConsole" style="display:none;">
+  <div class="console-shell">
 
-  <div class="stage-shell">
-    <div class="card" id="card">
-      <div class="logo-badge" aria-hidden="true">MCGI</div>
-      <div class="card-inner">
-        <p class="ref" id="stageRef">GENESIS 1:1</p>
-        <p class="version-label" id="stageVersion">ANG DATING BIBLIA</p>
-        <div class="verse-body">
-          <p id="stageText">Loading…</p>
+    <div class="top-bar">
+      <span class="account-badge" id="accountBadge"></span>
+      <button class="navbtn" id="toggleVisibilityBtn">Make Private</button>
+      <button class="navbtn" id="openPresenterBtn">Open Presenter Display ↗</button>
+      <span class="presenter-hint" id="presenterHint"></span>
+      <div class="spacer"></div>
+      <button class="navbtn" id="logoutBtn">Log out</button>
+    </div>
+
+    <p class="preview-label">Now Showing — this is what your audience sees</p>
+    <div class="stage-shell">
+      <div class="card" id="card">
+        <div class="card-inner">
+          <p class="ref" id="stageRef">GENESIS 1:1</p>
+          <p class="version-label" id="stageVersion">ANG DATING BIBLIA</p>
+          <div class="verse-body">
+            <p id="stageText">Loading…</p>
+          </div>
+          <div class="crossrefs" id="crossrefs"></div>
         </div>
-        <div class="crossrefs" id="crossrefs"></div>
       </div>
     </div>
-  </div>
 
-  <div class="toolbar">
-    <input type="text" id="jumpBox" placeholder="Go to e.g. John 3:16" />
-    <select id="version"></select>
-    <button class="navbtn" id="prevBtn">Previous</button>
-    <button class="navbtn" id="nextBtn">Next</button>
-    <select id="chapterJump" title="Jump to book"></select>
-    <select id="bgSelect" title="Background theme"></select>
-    <select id="safeMarginSelect" title="Safe margin (broadcast-safe padding)">
-      <option value="0">Safe Margin: None</option>
-      <option value="300">Safe Margin: 300</option>
-      <option value="400">Safe Margin: 400</option>
-      <option value="500">Safe Margin: 500</option>
-    </select>
-
-    <div class="spacer"></div>
-
-    <div class="tools">
-      <button id="arBtn" class="active" title="Auto-resize text to fit">AR</button>
-      <button title="Reserved">D</button>
-      <button id="fontBtn" title="Cycle text size">A</button>
-      <button title="Reserved">BV</button>
-      <button title="Reserved">V</button>
-      <button id="historyBtn" title="Recently shown verses">H</button>
-      <button id="searchBtn" title="Search verses">Search</button>
-      <button title="Reserved">C</button>
-      <button id="sBtn" title="Font Setting">S</button>
-      <button title="Reserved">BF</button>
-      <button title="Reserved">BI</button>
-      <button id="refreshBtn" title="Refresh">⟳</button>
-      <button id="topBtn" title="Toggle fullscreen">TOP</button>
-      <button id="minBtn" title="Minimize toolbar">_</button>
-      <button class="close" id="closeBtn" title="Exit presentation">X</button>
+    <div class="console-section">
+      <p class="section-label">Navigation</p>
+      <div class="toolbar">
+        <input type="text" id="jumpBox" placeholder="Go to e.g. John 3:16" />
+        <select id="version"></select>
+        <button class="navbtn" id="prevBtn">Previous</button>
+        <button class="navbtn" id="nextBtn">Next</button>
+        <select id="chapterJump" title="Jump to book"></select>
+      </div>
     </div>
-  </div>
 
-  <div class="presenter-panel">
-    <span class="account-badge" id="accountBadge"></span>
-    <button class="navbtn" id="toggleVisibilityBtn">Make Private</button>
-    <button class="navbtn" id="openPresenterBtn">Open Presenter Display ↗</button>
-    <span class="presenter-hint" id="presenterHint"></span>
-    <button class="navbtn" id="logoutBtn">Log out</button>
-  </div>
+    <div class="console-section">
+      <p class="section-label">Display Settings</p>
+      <div class="toolbar">
+        <select id="bgSelect" title="Background theme"></select>
+        <select id="safeMarginSelect" title="Safe margin (broadcast-safe padding)">
+          <option value="0">Safe Margin: None</option>
+          <option value="300">Safe Margin: 300</option>
+          <option value="400">Safe Margin: 400</option>
+          <option value="500">Safe Margin: 500</option>
+        </select>
+        <button id="arBtn" class="navbtn active" title="Auto-resize text to fit">AR (Auto-Resize)</button>
+        <button id="fontBtn" class="navbtn" title="Cycle text size">A (Text Size)</button>
+        <button id="sBtn" class="navbtn" title="Font Setting">S (Font Setting)</button>
+      </div>
+    </div>
 
+    <div class="console-section">
+      <p class="section-label">Tools</p>
+      <div class="toolbar">
+        <button id="historyBtn" class="navbtn" title="Recently shown verses">History</button>
+        <button id="searchBtn" class="navbtn" title="Search verses">Search</button>
+        <div class="spacer"></div>
+        <div class="tools">
+          <button title="Reserved">D</button>
+          <button title="Reserved">BV</button>
+          <button title="Reserved">V</button>
+          <button title="Reserved">C</button>
+          <button title="Reserved">BF</button>
+          <button title="Reserved">BI</button>
+          <button id="refreshBtn" title="Refresh">⟳</button>
+          <button id="topBtn" title="Toggle fullscreen">TOP</button>
+          <button id="minBtn" title="Minimize toolbar">_</button>
+          <button class="close" id="closeBtn" title="Exit presentation">X</button>
+        </div>
+      </div>
+    </div>
+
+  </div>
   </div>
 
   <div class="fs-overlay" id="fsOverlay">
