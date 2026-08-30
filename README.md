@@ -33,9 +33,9 @@ npm run seed       # builds data/bible.db from the two Bible datasets
 npm start          # starts the server
 ```
 
-Then open **http://localhost:3000** for the public homepage (who's live
-right now), or **http://localhost:3000/console** to sign in/register and run
-a service yourself.
+Then open **http://localhost:3000** for the landing page (choose Operator or
+Viewer), or go straight to **http://localhost:3000/control** to sign
+in/register and run a service yourself.
 
 `npm run seed` is safe to re-run any time — it rebuilds the relevant tables
 from scratch (useful if you add more translations later).
@@ -73,9 +73,9 @@ mcgi-digital-bible/
 │       ├── adb.json          Ang Dating Biblia full text (public domain)
 │       └── kjv.json          King James Version full text (public domain)
 ├── public/                   the frontend (served statically by Express)
-│   ├── index.html                      Homepage — public directory + live previews
-│   ├── console.html / js/app.js        Operator console (login-gated, at /console)
-│   ├── present.html / js/present.js    Audience/viewer display (at /present)
+│   ├── index.html                      Landing page — choose Operator or Viewer
+│   ├── console.html / js/app.js        Control Panel (login-gated, at /control)
+│   ├── present.html / js/present.js    Presenter/viewer display (at /present), borderless
 │   ├── js/themes.js                    Background themes + Safe Margin (shared by both)
 │   ├── css/style.css
 │   └── img/                            drop logo.png / background.jpg here
@@ -83,23 +83,25 @@ mcgi-digital-bible/
     └── bible.db              created by `npm run seed` (gitignored)
 ```
 
-## Homepage, operator accounts & multiple simultaneous operators
+## Landing page, operator accounts & multiple simultaneous operators
 
-**The homepage (`/`) is now a public directory**, styled like a video
-platform's homepage: every **public** operator who's currently broadcasting
-shows up as a card with a live preview (current reference, version, and a
-snippet of the verse text), refreshing automatically. Anyone can browse it
-without logging in — click a card to open that operator's presenter view.
+**The homepage (`/`) is a simple landing page** with two entry points: "I
+Am an Operator" (→ `/control`) and "I Am a Viewer" (→ `/present`). No
+directory or live previews here anymore — that's planned for a later phase.
+For now, viewers either use a direct link an operator shares
+(`/present?operator=<locale>`), or open `/present` with no link at all and
+pick from a plain dropdown of whoever's currently online.
 
-**The operator console moved to `/console`.** That's where you register/log
-in and actually run a service. Open signup, no admin approval, no email
+**The control panel lives at `/control`** (the old `/console` URL still
+works — it just redirects there). That's where you register/log in and
+actually run a service. Open signup, no admin approval, no email
 verification — meant for your own team/congregations, not gated.
 
 Instead of a generic username, operators register with a **locale** — a
 place name like "Ugong" or "San Juan" — since that's what actually
 identifies a congregation/service in this context. At registration you also
 choose:
-- **Public** — shown on the homepage directory for anyone to find.
+- **Public** — shown in the dropdown on `/present` (the picker viewers see when they open it with no direct link).
 - **Private** — not listed anywhere; only reachable if someone has your
   direct `/present?operator=<locale>` link. Toggle this anytime from the
   console (top bar, next to your account badge).
@@ -133,18 +135,45 @@ squatting on the directory forever. Adjust the threshold with the
 
 ## Presenter/Audience split view
 
-The **presenter view** (`/present?operator=<locale>`) is a clean, no-
-controls display meant for the projector/TV, kept in sync in real time over
-WebSocket: whenever that operator navigates to a new verse, every viewer
-watching them updates instantly.
+The **presenter view** (`/present?operator=<locale>`) is a clean,
+**strictly borderless** display meant for the projector/TV/livestream feed
+— background and text only, no card frame, no outline, by design (this is
+a hard rule, not a style choice: nothing should be added back that puts a
+border/frame around the presenter card). It's kept in sync in real time
+over WebSocket: whenever that operator navigates to a new verse, every
+viewer watching them updates instantly, with a smooth cross-fade instead of
+a hard cut.
+
+Opening `/present` with **no operator specified** shows a plain, searchable
+list of whoever's currently public and online (with a live viewer count
+next to each), instead of redirecting away — the search box only appears
+once there are more than 5 operators online, to stay out of the way for
+small setups. Pick one and it takes you straight to their feed. The page
+title also updates dynamically to show the current reference and operator
+(useful when the presenter tab is one of many open browser tabs), and a
+small "Following: [locale]" badge sits in the top-left corner once
+connected.
+
+Press **F** anywhere on the presenter page to toggle fullscreen (no visible
+button — keeping the borderless page free of UI chrome — but the shortcut
+works the moment the page has focus). The control panel has the same F
+shortcut, alongside the existing arrow-key/`/`/Esc shortcuts.
 
 Works for both setups:
 - **One laptop, extended display** — click "Open Presenter Display" on the
-  console page (this automatically includes your own locale in the
-  link), drag that new window to the projector/second monitor, make it
-  fullscreen (the **TOP** button toggles fullscreen).
+  control panel (this automatically includes your own locale in the
+  link), drag that new window to the projector/second monitor, press **F**
+  or click the **TOP** button to make it fullscreen.
 - **Two different devices, same WiFi** — the console page shows a LAN URL
   under the toolbar, already including your operator locale.
+
+### Copy Verse
+
+The control panel's Tools section has a **Copy Verse** button — copies the
+currently-shown reference, version, and text to the clipboard as plain
+text (e.g. for pasting into an announcement or chat). Falls back to a
+manual-selection method on browsers/contexts where the Clipboard API isn't
+available (like non-HTTPS local testing).
 
 ### Auto vs Manual Version Mode (viewer-side)
 
@@ -160,6 +189,11 @@ bottom-left corner:
   same verses in English, automatically, with no extra work from the
   operator. This choice is remembered per-operator in the viewer's own
   browser (`localStorage`), not on the server.
+
+The control panel also has its own **Local Preview** mode (Auto/Manual) in
+its own section — this only changes what the *operator* sees in their own
+"Now Showing" preview, as a way to check how a Manual-mode viewer would see
+it. It never affects the actual broadcast.
 
 Under the hood: the server keeps one "room" per operator locale in memory
 (`server/liveState.js`), each with its own current reference and its own set
@@ -217,20 +251,22 @@ the jump box, and clicking a search result.
 
 ## Church logo/branding
 
-A placeholder circular badge ("MCGI") sits in the top-right corner of the
-card, on both the control and presenter views (`.logo-badge` in
-`public/css/style.css`, one `<div class="logo-badge">` per HTML page). To
-swap in a real logo:
+There's currently no logo shown anywhere — the placeholder badge was
+removed. The `.logo-badge` CSS rule is still in `public/css/style.css` if
+you want to bring a logo back later:
 
 1. Put your logo file at `public/img/logo.png` (transparent background works best).
-2. Replace `<div class="logo-badge" aria-hidden="true">MCGI</div>` in both
-   `public/console.html` and `public/present.html` with:
-   ```html
-   <img class="logo-badge" src="/img/logo.png" alt="MCGI logo" />
-   ```
+2. Add `<img class="logo-badge" src="/img/logo.png" alt="MCGI logo" />`
+   inside `.card` in `public/console.html` and/or `public/present.html`
+   (right after the opening `<div class="card" id="card">` line).
 3. In `style.css`, you may want to change `.logo-badge`'s `background` to
    `background:none;` and add `object-fit:contain;` so your image shows
    cleanly instead of the placeholder circle.
+
+Note: the Presenter (`/present`) is strictly borderless by design — a small
+corner logo image doesn't violate that rule (it's not a frame/outline
+around the card), but keep it subtle if you add one there, so it doesn't
+start feeling like a border again.
 
 ## API reference
 
