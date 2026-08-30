@@ -72,9 +72,19 @@ function initSchema() {
       last_book TEXT,
       last_chapter INTEGER,
       last_verse INTEGER,
+      last_background TEXT NOT NULL DEFAULT 'default',
+      last_safe_margin INTEGER NOT NULL DEFAULT 0,
       created_at TEXT NOT NULL DEFAULT (datetime('now'))
     );
   `);
+
+  const opCols = db.prepare(`PRAGMA table_info(operators)`).all().map(c => c.name);
+  if (!opCols.includes('last_background')) {
+    db.exec(`ALTER TABLE operators ADD COLUMN last_background TEXT NOT NULL DEFAULT 'default'`);
+  }
+  if (!opCols.includes('last_safe_margin')) {
+    db.exec(`ALTER TABLE operators ADD COLUMN last_safe_margin INTEGER NOT NULL DEFAULT 0`);
+  }
 
   // Lightweight migration for databases created before is_public/last_active_at existed.
   const cols = db.prepare(`PRAGMA table_info(operators)`).all().map(c => c.name);

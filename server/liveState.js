@@ -10,7 +10,7 @@ const rooms = new Map();
 function getRoom(username) {
   if (!rooms.has(username)) {
     rooms.set(username, {
-      current: { version: 'ADB', book: 'Genesis', chapter: 1, verse: 1 },
+      current: { version: 'ADB', book: 'Genesis', chapter: 1, verse: 1, background: 'default', safeMargin: 0 },
       lastPayload: null,
       operatorSocket: null,
       viewerSockets: new Set()
@@ -21,7 +21,8 @@ function getRoom(username) {
 
 function computePayload(room) {
   const payload = getVersePayload(room.current.version, room.current.book, room.current.chapter, room.current.verse);
-  room.lastPayload = payload || { ...room.current, text: null, found: false };
+  const base = payload || { ...room.current, text: null, found: false };
+  room.lastPayload = { ...base, background: room.current.background, safeMargin: room.current.safeMargin };
   return room.lastPayload;
 }
 
@@ -41,13 +42,15 @@ function broadcastToRoom(username, message) {
   }
 }
 
-function setReference(username, { version, book, chapter, verse }) {
+function setReference(username, { version, book, chapter, verse, background, safeMargin }) {
   const room = getRoom(username);
   room.current = {
     version: version || room.current.version,
     book: book || room.current.book,
     chapter: parseInt(chapter, 10) || room.current.chapter,
-    verse: parseInt(verse, 10) || room.current.verse
+    verse: parseInt(verse, 10) || room.current.verse,
+    background: background || room.current.background,
+    safeMargin: safeMargin !== undefined && safeMargin !== null ? parseInt(safeMargin, 10) : room.current.safeMargin
   };
   const payload = computePayload(room);
   broadcastToRoom(username, { type: 'verse', payload });
