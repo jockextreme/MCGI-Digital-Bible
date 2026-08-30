@@ -81,8 +81,10 @@ body{
 
 .card-inner{
   position:absolute;inset:0;
-  padding:clamp(20px,4vw,64px) clamp(24px,5vw,72px);
+  --safe-margin:0px;
+  padding:calc(clamp(20px,4vw,64px) + var(--safe-margin)) calc(clamp(24px,5vw,72px) + var(--safe-margin));
   display:flex;flex-direction:column;
+  transition:padding .18s cubic-bezier(.4,0,.2,1);
 }
 
 .logo-badge{
