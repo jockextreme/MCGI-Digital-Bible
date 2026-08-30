@@ -95,6 +95,7 @@
 
     <div class="top-bar">
       <span class="account-badge" id="accountBadge"></span>
+      <span class="conn-status-badge" id="connStatusBadge">Connecting…</span>
       <span class="viewer-count-badge" id="viewerCountBadge">0 watching</span>
       <button class="navbtn" id="toggleVisibilityBtn">Make Private</button>
       <button class="navbtn" id="openPresenterBtn">Open Presenter Display ↗</button>
@@ -126,6 +127,17 @@
         <button class="navbtn" id="prevBtn">Previous</button>
         <button class="navbtn" id="nextBtn">Next</button>
         <select id="chapterJump" title="Jump to book"></select>
+      </div>
+    </div>
+
+    <div class="console-section">
+      <p class="section-label">Local Preview — only affects what you see here, not the broadcast</p>
+      <div class="toolbar">
+        <select id="previewModeSelect" title="Preview as Auto or Manual version mode">
+          <option value="auto">Preview Mode: Auto (broadcast version)</option>
+          <option value="manual">Preview Mode: Manual (pick a version)</option>
+        </select>
+        <select id="previewVersionSelect" title="Version to preview" style="display:none;"></select>
       </div>
     </div>
 
