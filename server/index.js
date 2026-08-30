@@ -49,18 +49,19 @@ app.use('/api/operators', operatorsRouter);
 
 app.get('/api/health', (req, res) => res.json({ ok: true }));
 
-// The operator console (login + control panel) lives at /console now — the
-// homepage (/) is the public directory of who's currently broadcasting.
-app.get('/console', (req, res) => {
+// The operator control panel (login + controls) lives at /control.
+app.get('/control', (req, res) => {
   res.sendFile(path.join(__dirname, '..', 'public', 'console.html'));
 });
+// Legacy URL from before the control panel was renamed.
+app.get('/console', (req, res) => res.redirect('/control'));
 
-// The presenter (audience) view is its own clean page — no toolbar.
+// The presenter (audience) view is its own clean page — no toolbar, no border.
 app.get('/present', (req, res) => {
   res.sendFile(path.join(__dirname, '..', 'public', 'present.html'));
 });
 
-// Legacy URL from before the homepage became the operator directory.
+// Legacy URL from before the homepage became the two-role landing page.
 app.get('/operators', (req, res) => res.redirect('/'));
 
 const server = http.createServer(app);
@@ -105,7 +106,8 @@ wss.on('connection', (ws, req) => {
 
 server.listen(PORT, () => {
   console.log(`MCGI Digital Bible server running at http://localhost:${PORT}`);
-  console.log(`Homepage (who's live): http://localhost:${PORT}/`);
-  console.log(`Operator console: http://localhost:${PORT}/console`);
+  console.log(`Landing page: http://localhost:${PORT}/`);
+  console.log(`Control panel: http://localhost:${PORT}/control`);
+  console.log(`Presenter: http://localhost:${PORT}/present`);
   startCleanupSchedule();
 });
