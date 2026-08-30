@@ -20,7 +20,7 @@ router.get('/', (req, res) => {
   res.json(liveState.getCurrentPayload(operator));
 });
 
-// POST /api/live-state — body: { version, book, chapter, verse }
+// POST /api/live-state — body: { version, book, chapter, verse, background, safeMargin }
 // Requires login. Updates the logged-in operator's own room and broadcasts
 // it to every viewer currently watching that operator, plus their own
 // console (other tabs) for consistency. Also saves this as their resume point.
@@ -28,17 +28,20 @@ router.post('/', (req, res) => {
   const username = usernameForSession(req);
   if (!username) return res.status(401).json({ error: 'Not logged in' });
 
-  const { version, book, chapter, verse } = req.body || {};
+  const { version, book, chapter, verse, background, safeMargin } = req.body || {};
   if (!book || !chapter || !verse) {
     return res.status(400).json({ error: 'book, chapter, and verse are required' });
   }
-  const payload = liveState.setReference(username, { version, book, chapter, verse });
+  const payload = liveState.setReference(username, { version, book, chapter, verse, background, safeMargin });
   touchActivity(username);
 
   db.prepare(`
-    UPDATE operators SET last_version = ?, last_book = ?, last_chapter = ?, last_verse = ?
+    UPDATE operators
+    SET last_version = ?, last_book = ?, last_chapter = ?, last_verse = ?,
+        last_background = ?, last_safe_margin = ?
     WHERE id = ?
-  `).run(payload.version, payload.book, payload.chapter, payload.verse, req.session.operatorId);
+  `).run(payload.version, payload.book, payload.chapter, payload.verse,
+         payload.background, payload.safeMargin, req.session.operatorId);
 
   res.json(payload);
 });

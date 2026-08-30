@@ -19,7 +19,9 @@ function publicOperator(row) {
     lastVersion: row.last_version,
     lastBook: row.last_book,
     lastChapter: row.last_chapter,
-    lastVerse: row.last_verse
+    lastVerse: row.last_verse,
+    lastBackground: row.last_background,
+    lastSafeMargin: row.last_safe_margin
   };
 }
 
