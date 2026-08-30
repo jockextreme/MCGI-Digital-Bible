@@ -9,6 +9,7 @@ function buildPreview(row) {
   return {
     locale: row.username,
     online: liveState.isOperatorOnline(row.username),
+    viewerCount: liveState.getViewerCount(row.username),
     preview: payload ? {
       reference: `${payload.tagalogName || payload.book} ${payload.chapter}:${payload.verse}`,
       versionDisplayName: payload.versionDisplayName,

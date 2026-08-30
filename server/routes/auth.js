@@ -26,6 +26,17 @@ function publicOperator(row) {
 }
 
 // POST /api/auth/register — { locale, password, isPublic }
+// GET /api/auth/check-locale?locale=Ugong — real-time availability check
+// while someone's typing on the registration form.
+router.get('/check-locale', (req, res) => {
+  const cleanLocale = (req.query.locale || '').trim().replace(/\s+/g, ' ');
+  if (!cleanLocale || !LOCALE_RE.test(cleanLocale)) {
+    return res.json({ valid: false, available: false });
+  }
+  const existing = db.prepare('SELECT id FROM operators WHERE username = ? COLLATE NOCASE').get(cleanLocale);
+  res.json({ valid: true, available: !existing });
+});
+
 router.post('/register', (req, res) => {
   const { locale, password, isPublic } = req.body || {};
   const cleanLocale = (locale || '').trim().replace(/\s+/g, ' ');
