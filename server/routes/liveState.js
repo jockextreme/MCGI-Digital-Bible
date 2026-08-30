@@ -46,4 +46,19 @@ router.post('/', (req, res) => {
   res.json(payload);
 });
 
+// POST /api/live-state/blank — body: { blank: true|false }
+// Emergency blank screen — doesn't touch the current verse reference, just
+// toggles whether the presenter shows it or goes to plain black. Not
+// persisted across restarts on purpose — it's a live-only safety control,
+// not something you'd want silently re-applied next time you log in.
+router.post('/blank', (req, res) => {
+  const username = usernameForSession(req);
+  if (!username) return res.status(401).json({ error: 'Not logged in' });
+
+  const { blank } = req.body || {};
+  const payload = liveState.setBlank(username, !!blank);
+  touchActivity(username);
+  res.json(payload);
+});
+
 module.exports = router;
