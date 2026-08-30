@@ -76,6 +76,7 @@ mcgi-digital-bible/
 │   ├── index.html                      Homepage — public directory + live previews
 │   ├── console.html / js/app.js        Operator console (login-gated, at /console)
 │   ├── present.html / js/present.js    Audience/viewer display (at /present)
+│   ├── js/themes.js                    Background themes + Safe Margin (shared by both)
 │   ├── css/style.css
 │   └── img/                            drop logo.png / background.jpg here
 └── data/
@@ -170,6 +171,50 @@ in Manual mode take just the book/chapter/verse from that broadcast and
 independently call `GET /api/verses` themselves with their own chosen
 version.
 
+## Background themes, Safe Margin & History
+
+Three features borrowed directly from how the official MCGI web app
+(`bible.mcgi.app`) works, found by researching its actual operator/viewer
+pages:
+
+### Background themes (BG dropdown)
+
+A shared registry (`public/js/themes.js`) used by both the operator console
+and the viewer page:
+- **Default** — your own photo at `/img/background.jpg`
+- **Black** — solid black, useful as a plain lower-third-style background
+- **Chroma** — solid green-screen green (`#00b140`), for compositing this
+  card into a live production (OBS, vMix, etc.) with the background keyed
+  out entirely
+
+To add more (e.g. a themed background for a special event, matching the
+official app's per-event themes like their "Youth 2024" or "Wedding 2024"),
+add an entry to the `BACKGROUND_THEMES` array in `themes.js` pointing at an
+image you've placed under `/img/backgrounds/` — it shows up in the operator
+dropdown and on viewer screens automatically, nothing else to wire up.
+
+The chosen theme is part of the live broadcast (so viewers always see
+whatever background the operator picked) and is saved as that operator's
+resume point, same as their last book/chapter/verse.
+
+### Safe Margin
+
+A broadcast-production feature: when this display gets captured by a
+camera or composited into a TV/livestream output, text sitting right at
+the edge of the frame can get clipped. Safe Margin adds extra padding
+inside the card — **None / 300 / 400 / 500** (matching the official app's
+own options) — scaled proportionally to the actual screen size using the
+same technique as the auto-resize font sizing. Also broadcasts live and
+persists as the operator's resume point.
+
+### History (the "H" button)
+
+Tracks recently-shown references for the current console session (not
+persisted to the database — it resets if you reload the console). Click
+**H** to see a list of what's been shown, most recent first, and click any
+entry to jump back to it. Wired into every navigation path: Previous/Next,
+the jump box, and clicking a search result.
+
 ## Church logo/branding
 
 A placeholder circular badge ("MCGI") sits in the top-right corner of the
@@ -204,7 +249,7 @@ swap in a real logo:
 - `GET /api/auth/ws-token` — one-time token for the operator's authenticated WebSocket connection.
 - `GET /api/operators/online` — **public** operators currently broadcasting, each with a live preview (reference, version, text snippet). Powers the homepage.
 - `GET /api/live-state?operator=<locale>` — an operator's current reference.
-- `POST /api/live-state` — (requires login) body `{ version, book, chapter, verse }`; updates and broadcasts the logged-in operator's own room, and saves it as their resume point.
+- `POST /api/live-state` — (requires login) body `{ version, book, chapter, verse, background, safeMargin }`; updates and broadcasts the logged-in operator's own room, and saves it as their resume point.
 
 ## Bible text data
 
@@ -229,18 +274,22 @@ to the `VERSIONS` array in `server/seed/seed.js`, and re-run `npm run seed`.
 
 ## Background image
 
-The card currently uses a **CSS-only placeholder background** (a dark
-gradient) — deliberately, since the original app's bundled background image
-had unclear rights for public redistribution. To use your own photo:
+The card is wired directly to `public/img/background.jpg` — no gradient
+overlay, no shadow layered on top of it. Just drop your photo in at that
+exact path and filename and it shows up as-is:
 
-1. Put it at `public/img/background.jpg`.
-2. In `public/css/style.css`, find the `.card` rule's `background-image`
-   and change it to:
-   ```css
-   background-image:
-     linear-gradient(155deg, rgba(6,14,42,0.85) 0%, rgba(10,22,60,0.72) 45%, rgba(6,14,42,0.88) 100%),
-     url('/img/background.jpg');
-   ```
+```
+public/img/background.jpg
+```
+
+Until that file exists, the card falls back to a plain solid dark color
+(`#081226`) instead of looking broken.
+
+If your photo makes the verse text harder to read once it's in, the text
+elements (`.ref`, `.version-label`, `.verse-body p`) each already carry
+their own subtle drop-shadow for contrast — if that's still not enough,
+adding a semi-transparent dark layer back into `.card`'s `background-image`
+is the fix (ask and it can be added back in).
 
 ## Notes on the original desktop app
 
