@@ -77,6 +77,11 @@ body{
   to{ opacity:1; transform:scale(1); }
 }
 
+.card.emergency-blank{
+  background-image:none !important;
+  background-color:#000 !important;
+}
+
 .card-inner{
   position:absolute;inset:0;
   --safe-margin:0px;
@@ -173,6 +178,8 @@ body{
 }
 .toolbar .navbtn:hover{background:#000; transform:translateY(-1px);}
 .toolbar .navbtn:active{transform:translateY(0);}
+.toolbar .navbtn.blank-active{ background:#7a1c1c; }
+.toolbar .navbtn.blank-active:hover{ background:#9c2323; }
 .toolbar .spacer{flex:1;}
 
 .toolbar .tools{
