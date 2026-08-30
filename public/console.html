@@ -44,7 +44,7 @@
   <div class="toast-stack" id="toastStack"></div>
 
   <div class="fs-overlay open" id="authOverlay">
-    <div class="fs-dialog auth-dialog">
+    <div class="fs-dialog auth-dialog" role="dialog" aria-modal="true" aria-label="Sign in">
       <div class="fs-titlebar">
         <span id="authTitle">Operator Sign In</span>
       </div>
@@ -52,6 +52,7 @@
         <div class="auth-field">
           <label id="authLocaleLabel">What is your locale?</label>
           <input type="text" id="authLocale" placeholder="e.g. Ugong" autocomplete="username" />
+          <p class="auth-help" id="authLocaleStatus"></p>
         </div>
 
         <div class="auth-field" id="authVisibilityField" style="display:none;">
@@ -70,7 +71,10 @@
 
         <div class="auth-field">
           <label>Password</label>
-          <input type="password" id="authPassword" placeholder="e.g. Test123" autocomplete="current-password" />
+          <div class="auth-password-wrap">
+            <input type="password" id="authPassword" placeholder="e.g. Test123" autocomplete="current-password" />
+            <button type="button" id="authPasswordToggle" aria-label="Show password">👁</button>
+          </div>
           <p class="auth-help">At least 6 characters.</p>
         </div>
 
@@ -91,10 +95,12 @@
 
     <div class="top-bar">
       <span class="account-badge" id="accountBadge"></span>
+      <span class="viewer-count-badge" id="viewerCountBadge">0 watching</span>
       <button class="navbtn" id="toggleVisibilityBtn">Make Private</button>
       <button class="navbtn" id="openPresenterBtn">Open Presenter Display ↗</button>
       <span class="presenter-hint" id="presenterHint"></span>
       <div class="spacer"></div>
+      <span class="shortcuts-hint">← → navigate · / search · Esc close</span>
       <button class="navbtn" id="logoutBtn">Log out</button>
     </div>
 
@@ -152,10 +158,10 @@
           <button title="Reserved">C</button>
           <button title="Reserved">BF</button>
           <button title="Reserved">BI</button>
-          <button id="refreshBtn" title="Refresh">⟳</button>
-          <button id="topBtn" title="Toggle fullscreen">TOP</button>
-          <button id="minBtn" title="Minimize toolbar">_</button>
-          <button class="close" id="closeBtn" title="Exit presentation">X</button>
+          <button id="refreshBtn" title="Refresh" aria-label="Refresh display">⟳</button>
+          <button id="topBtn" title="Toggle fullscreen" aria-label="Toggle fullscreen">TOP</button>
+          <button id="minBtn" title="Minimize toolbar" aria-label="Minimize toolbar">_</button>
+          <button class="close" id="closeBtn" title="Exit presentation" aria-label="Exit fullscreen">X</button>
         </div>
       </div>
     </div>
@@ -164,10 +170,10 @@
   </div>
 
   <div class="fs-overlay" id="fsOverlay">
-    <div class="fs-dialog">
+    <div class="fs-dialog" role="dialog" aria-modal="true" aria-label="Font Setting">
       <div class="fs-titlebar">
         <span>Font Setting</span>
-        <button id="fsCloseX">✕</button>
+        <button id="fsCloseX" aria-label="Close Font Setting">✕</button>
       </div>
       <div class="fs-body">
         <div class="fs-columns">
@@ -185,10 +191,10 @@
   </div>
 
   <div class="fs-overlay" id="searchOverlay">
-    <div class="fs-dialog search-dialog">
+    <div class="fs-dialog search-dialog" role="dialog" aria-modal="true" aria-label="Search">
       <div class="fs-titlebar">
         <span>Search</span>
-        <button id="searchCloseX">✕</button>
+        <button id="searchCloseX" aria-label="Close Search">✕</button>
       </div>
       <div class="fs-body">
         <input type="text" id="searchInput" class="search-input" placeholder="Type a word or phrase…" />
@@ -199,10 +205,10 @@
   </div>
 
   <div class="fs-overlay" id="historyOverlay">
-    <div class="fs-dialog search-dialog">
+    <div class="fs-dialog search-dialog" role="dialog" aria-modal="true" aria-label="Recently Shown">
       <div class="fs-titlebar">
         <span>Recently Shown</span>
-        <button id="historyCloseX">✕</button>
+        <button id="historyCloseX" aria-label="Close History">✕</button>
       </div>
       <div class="fs-body">
         <div class="search-meta" id="historyMeta"></div>
