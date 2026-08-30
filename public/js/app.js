@@ -4,16 +4,18 @@
   const state = {
     books: [],            // [{key, tagalogName, chapterCount}]
     versions: [],         // [{code, displayName, language, hasData}]
-    current: { book: 'Genesis', chapter: 1, verse: 1, version: 'ADB' },
+    current: { book: 'Genesis', chapter: 1, verse: 1, version: 'ADB', background: 'default', safeMargin: 0 },
     autoResize: true,
     fontStep: 2,           // 1 small, 2 medium, 3 large — manual mode only
     fontTable: [],         // [{rangeIndex, minLength, maxLength, fontSize}]
-    operator: null,        // { id, locale, isPublic, lastVersion, lastBook, lastChapter, lastVerse }
-    authMode: 'login'      // 'login' | 'register'
+    operator: null,        // { id, locale, isPublic, lastVersion, lastBook, lastChapter, lastVerse, lastBackground, lastSafeMargin }
+    authMode: 'login',     // 'login' | 'register'
+    history: []            // recently shown references, most recent last
   };
   const FONT_SIZES = { 1: 34, 2: 40, 3: 46 };
   const DESIGN_WIDTH = 1920;
   const MIN_FIT_SIZE = 15;
+  const MAX_HISTORY = 25;
 
   const el = id => document.getElementById(id);
 
@@ -143,7 +145,9 @@
         book: state.operator.lastBook,
         chapter: state.operator.lastChapter,
         verse: state.operator.lastVerse,
-        version: state.operator.lastVersion || state.current.version
+        version: state.operator.lastVersion || state.current.version,
+        background: state.operator.lastBackground || 'default',
+        safeMargin: state.operator.lastSafeMargin || 0
       };
     }
 
@@ -159,9 +163,29 @@
     state.books.forEach(b => chapterJump.add(new Option(b.tagalogName, b.key)));
     chapterJump.value = state.current.book;
     chapterJump.addEventListener('change', () => {
+      pushHistory();
       state.current.book = chapterJump.value;
       state.current.chapter = 1;
       state.current.verse = 1;
+      render();
+    });
+
+    const bgSelect = el('bgSelect');
+    BACKGROUND_THEMES.forEach(t => bgSelect.add(new Option(t.label, t.key)));
+    bgSelect.value = state.current.background;
+    applyBackgroundTheme(el('card'), state.current.background);
+    bgSelect.addEventListener('change', () => {
+      state.current.background = bgSelect.value;
+      applyBackgroundTheme(el('card'), state.current.background);
+      render();
+    });
+
+    const safeMarginSelect = el('safeMarginSelect');
+    safeMarginSelect.value = String(state.current.safeMargin || 0);
+    applySafeMargin(document.querySelector('.card-inner'), state.current.safeMargin, el('card').clientWidth);
+    safeMarginSelect.addEventListener('change', () => {
+      state.current.safeMargin = parseInt(safeMarginSelect.value, 10);
+      applySafeMargin(document.querySelector('.card-inner'), state.current.safeMargin, el('card').clientWidth);
       render();
     });
 
@@ -171,6 +195,7 @@
     el('fontBtn').addEventListener('click', cycleFont);
     el('arBtn').addEventListener('click', toggleAutoResize);
     el('searchBtn').addEventListener('click', openSearch);
+    el('historyBtn').addEventListener('click', openHistory);
     el('sBtn').addEventListener('click', openFontSettings);
     el('refreshBtn').addEventListener('click', render);
     el('topBtn').addEventListener('click', toggleFullscreen);
@@ -191,6 +216,7 @@
 
     el('searchCloseX').addEventListener('click', closeSearch);
     el('searchInput').addEventListener('input', debounce(doSearch, 200));
+    el('historyCloseX').addEventListener('click', closeHistory);
 
     window.addEventListener('resize', () => fitText());
     document.addEventListener('fullscreenchange', () => setTimeout(fitText, 50));
@@ -230,7 +256,11 @@
       data = await api('/live-state', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ version, book, chapter, verse })
+        body: JSON.stringify({
+          version, book, chapter, verse,
+          background: state.current.background,
+          safeMargin: state.current.safeMargin
+        })
       });
     } catch (err) {
       console.error(err);
@@ -264,6 +294,7 @@
   }
 
   async function step(dir) {
+    pushHistory();
     const meta = state.current._meta;
     const bookInfo = bookByKey(state.current.book);
     const maxChapter = bookInfo ? bookInfo.chapterCount : 999;
@@ -304,6 +335,7 @@
         b.key.toLowerCase() === typed || b.tagalogName.toLowerCase() === typed
       );
       if (found) {
+        pushHistory();
         state.current.book = found.key;
         state.current.chapter = parseInt(m[2], 10);
         state.current.verse = parseInt(m[3], 10);
@@ -497,6 +529,7 @@
     resultsEl.querySelectorAll('.search-result').forEach((rowEl, i) => {
       rowEl.addEventListener('click', () => {
         const m = data.results[i];
+        pushHistory();
         state.current.book = m.bookKey;
         state.current.chapter = m.chapter;
         state.current.verse = m.verse;
@@ -521,6 +554,58 @@
     } catch (err) {
       console.error('Could not load network info', err);
     }
+  }
+
+  // ---------- History (H button) ----------
+  function pushHistory() {
+    const snap = { ...state.current };
+    delete snap._meta;
+    const last = state.history[state.history.length - 1];
+    if (last && last.book === snap.book && last.chapter === snap.chapter &&
+        last.verse === snap.verse && last.version === snap.version) {
+      return; // don't record a no-op
+    }
+    state.history.push(snap);
+    if (state.history.length > MAX_HISTORY) state.history.shift();
+  }
+
+  function openHistory() {
+    const resultsEl = el('historyResults');
+    const metaEl = el('historyMeta');
+    const entries = state.history.slice().reverse(); // most recent first
+
+    metaEl.textContent = entries.length
+      ? `${entries.length} recent reference${entries.length === 1 ? '' : 's'} — click to go back.`
+      : 'Nothing shown yet this session.';
+
+    resultsEl.innerHTML = entries.map((entry, i) => {
+      const ref = `${displayBookName(entry.book)} ${entry.chapter}:${entry.verse}`;
+      const versionInfo = state.versions.find(v => v.code === entry.version);
+      return `<div class="search-result" data-i="${i}">
+        <div class="sr-ref">${ref}</div>
+        <div class="sr-text">${versionInfo ? versionInfo.displayName : entry.version}</div>
+      </div>`;
+    }).join('');
+
+    resultsEl.querySelectorAll('.search-result').forEach((rowEl, i) => {
+      rowEl.addEventListener('click', () => {
+        const entry = entries[i];
+        state.current.book = entry.book;
+        state.current.chapter = entry.chapter;
+        state.current.verse = entry.verse;
+        state.current.version = entry.version;
+        el('chapterJump').value = entry.book;
+        el('version').value = entry.version;
+        render();
+        closeHistory();
+      });
+    });
+
+    el('historyOverlay').classList.add('open');
+  }
+
+  function closeHistory() {
+    el('historyOverlay').classList.remove('open');
   }
 
   // ---------- Misc toolbar actions ----------

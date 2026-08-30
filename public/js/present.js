@@ -7,12 +7,13 @@
   let fontTable = [];
   let versions = [];
   let lastReference = null; // { book, chapter, verse } from whatever the operator last sent
+  let lastSafeMargin = 0;
 
   const params = new URLSearchParams(location.search);
   const operatorUsername = params.get('operator');
 
   if (!operatorUsername) {
-    location.href = '/operators';
+    location.href = '/';
     return;
   }
 
@@ -93,6 +94,10 @@
           ? `${payload.tagalogName || payload.book} ${payload.chapter}:${payload.verse} is out of range.`
           : `No text loaded for this version yet.`);
 
+    applyBackgroundTheme(el('card'), payload.background || 'default');
+    lastSafeMargin = payload.safeMargin || 0;
+    applySafeMargin(document.querySelector('.card-inner'), lastSafeMargin, el('card').clientWidth);
+
     const crEl = el('crossrefs');
     crEl.innerHTML = '';
     if (payload.crossrefs && payload.crossrefs.length) {
@@ -113,19 +118,23 @@
   // the viewer switches version mode locally.
   async function refreshDisplay() {
     if (!lastReference) return;
+    const opPayload = lastReference.operatorPayload;
 
     if (mode.type === 'auto') {
-      renderPayload(lastReference.operatorPayload);
+      renderPayload(opPayload);
       return;
     }
 
     // Manual mode: fetch this same book/chapter/verse in the viewer's own
     // chosen version, independent of whatever the operator is showing.
+    // Background/safe-margin are production settings for the room, not
+    // Bible content, so those always come from the operator regardless of
+    // which version the viewer is reading.
     try {
       const { book, chapter, verse } = lastReference;
       const res = await fetch(`/api/verses?version=${encodeURIComponent(mode.version)}&book=${encodeURIComponent(book)}&chapter=${chapter}&verse=${verse}`);
       const data = await res.json();
-      renderPayload(data);
+      renderPayload({ ...data, background: opPayload.background, safeMargin: opPayload.safeMargin });
     } catch (err) {
       console.error('Could not load verse in manual version', err);
     }
@@ -162,7 +171,10 @@
     });
   }
 
-  window.addEventListener('resize', fitText);
+  window.addEventListener('resize', () => {
+    fitText();
+    applySafeMargin(document.querySelector('.card-inner'), lastSafeMargin, el('card').clientWidth);
+  });
 
   Promise.all([loadFontTable(), loadVersions()]).then(connect);
 })();
