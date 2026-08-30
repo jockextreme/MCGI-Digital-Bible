@@ -10,7 +10,7 @@ const rooms = new Map();
 function getRoom(username) {
   if (!rooms.has(username)) {
     rooms.set(username, {
-      current: { version: 'ADB', book: 'Genesis', chapter: 1, verse: 1, background: 'default', safeMargin: 0 },
+      current: { version: 'ADB', book: 'Genesis', chapter: 1, verse: 1, background: 'default', safeMargin: 0, blank: false },
       lastPayload: null,
       operatorSocket: null,
       viewerSockets: new Set()
@@ -22,7 +22,7 @@ function getRoom(username) {
 function computePayload(room) {
   const payload = getVersePayload(room.current.version, room.current.book, room.current.chapter, room.current.verse);
   const base = payload || { ...room.current, text: null, found: false };
-  room.lastPayload = { ...base, background: room.current.background, safeMargin: room.current.safeMargin };
+  room.lastPayload = { ...base, background: room.current.background, safeMargin: room.current.safeMargin, blank: !!room.current.blank };
   return room.lastPayload;
 }
 
@@ -50,8 +50,19 @@ function setReference(username, { version, book, chapter, verse, background, saf
     chapter: parseInt(chapter, 10) || room.current.chapter,
     verse: parseInt(verse, 10) || room.current.verse,
     background: background || room.current.background,
-    safeMargin: safeMargin !== undefined && safeMargin !== null ? parseInt(safeMargin, 10) : room.current.safeMargin
+    safeMargin: safeMargin !== undefined && safeMargin !== null ? parseInt(safeMargin, 10) : room.current.safeMargin,
+    blank: room.current.blank
   };
+  const payload = computePayload(room);
+  broadcastToRoom(username, { type: 'verse', payload });
+  return payload;
+}
+
+// Emergency blank screen — toggled independently of navigation, so it
+// doesn't require picking a verse first.
+function setBlank(username, blank) {
+  const room = getRoom(username);
+  room.current.blank = !!blank;
   const payload = computePayload(room);
   broadcastToRoom(username, { type: 'verse', payload });
   return payload;
@@ -108,6 +119,7 @@ function listOnlineUsernames() {
 
 module.exports = {
   setReference,
+  setBlank,
   getCurrentPayload,
   registerOperatorSocket,
   registerViewerSocket,
