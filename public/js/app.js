@@ -10,7 +10,8 @@
     fontTable: [],         // [{rangeIndex, minLength, maxLength, fontSize}]
     operator: null,        // { id, locale, isPublic, lastVersion, lastBook, lastChapter, lastVerse, lastBackground, lastSafeMargin }
     authMode: 'login',     // 'login' | 'register'
-    history: []            // recently shown references, most recent last
+    history: [],           // recently shown references, most recent last
+    previewMode: { type: 'auto', version: null } // local-only, doesn't affect the broadcast
   };
   const FONT_SIZES = { 1: 34, 2: 40, 3: 46 };
   const DESIGN_WIDTH = 1920;
@@ -228,6 +229,23 @@
       render();
     });
 
+    const previewModeSelect = el('previewModeSelect');
+    const previewVersionSelect = el('previewVersionSelect');
+    state.versions.filter(v => v.hasData).forEach(v => previewVersionSelect.add(new Option(v.displayName, v.code)));
+    previewModeSelect.addEventListener('change', () => {
+      const manual = previewModeSelect.value === 'manual';
+      previewVersionSelect.style.display = manual ? '' : 'none';
+      state.previewMode = manual
+        ? { type: 'manual', version: previewVersionSelect.value || (state.versions.find(v => v.hasData) || {}).code }
+        : { type: 'auto', version: null };
+      if (manual) previewVersionSelect.value = state.previewMode.version;
+      if (manual) applyLocalPreviewOverride(); else render();
+    });
+    previewVersionSelect.addEventListener('change', () => {
+      state.previewMode.version = previewVersionSelect.value;
+      applyLocalPreviewOverride();
+    });
+
     el('prevBtn').addEventListener('click', () => step(-1));
     el('nextBtn').addEventListener('click', () => step(1));
     el('jumpBox').addEventListener('keydown', e => { if (e.key === 'Enter') jumpTo(); });
@@ -334,18 +352,41 @@
   // Keeps a lightweight WebSocket open purely so this operator shows up as
   // "online" on the homepage, and to receive live viewer-count updates.
   function connectPresenceSocket() {
+    updateConnStatus('connecting');
     api('/auth/ws-token').then(({ token }) => {
       const proto = location.protocol === 'https:' ? 'wss:' : 'ws:';
       const ws = new WebSocket(`${proto}//${location.host}/ws?role=operator&token=${token}`);
+      ws.addEventListener('open', () => updateConnStatus('connected'));
       ws.addEventListener('message', evt => {
         try {
           const msg = JSON.parse(evt.data);
           if (msg.type === 'viewerCount') updateViewerCountBadge(msg.count);
         } catch (err) { /* ignore malformed messages */ }
       });
-      ws.addEventListener('close', () => setTimeout(connectPresenceSocket, 3000));
+      ws.addEventListener('close', () => {
+        updateConnStatus('reconnecting');
+        setTimeout(connectPresenceSocket, 3000);
+      });
       ws.addEventListener('error', () => ws.close());
-    }).catch(() => setTimeout(connectPresenceSocket, 3000));
+    }).catch(() => {
+      updateConnStatus('reconnecting');
+      setTimeout(connectPresenceSocket, 3000);
+    });
+  }
+
+  function updateConnStatus(status) {
+    const badge = el('connStatusBadge');
+    if (!badge) return;
+    badge.classList.remove('connected', 'reconnecting');
+    if (status === 'connected') {
+      badge.textContent = 'Connected';
+      badge.classList.add('connected');
+    } else if (status === 'reconnecting') {
+      badge.textContent = 'Reconnecting…';
+      badge.classList.add('reconnecting');
+    } else {
+      badge.textContent = 'Connecting…';
+    }
   }
 
   function updateViewerCountBadge(count) {
@@ -410,6 +451,24 @@
     }
 
     fitText();
+    await applyLocalPreviewOverride();
+  }
+
+  // ---------- Local Preview mode (operator-only, doesn't affect the broadcast) ----------
+  async function applyLocalPreviewOverride() {
+    if (state.previewMode.type !== 'manual' || !state.previewMode.version) return;
+    const { book, chapter, verse } = state.current;
+    try {
+      const data = await api(`/verses?version=${encodeURIComponent(state.previewMode.version)}&book=${encodeURIComponent(book)}&chapter=${chapter}&verse=${verse}`);
+      const versionInfo = state.versions.find(v => v.code === state.previewMode.version);
+      el('stageVersion').textContent = (versionInfo ? versionInfo.displayName : state.previewMode.version) + ' (preview)';
+      el('stageText').textContent = data.found
+        ? data.text
+        : `No text loaded for this preview version at ${book} ${chapter}:${verse}.`;
+      fitText();
+    } catch (err) {
+      console.error('Could not load local preview version', err);
+    }
   }
 
   async function step(dir) {

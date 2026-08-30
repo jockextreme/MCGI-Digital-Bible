@@ -13,8 +13,38 @@
   const operatorUsername = params.get('operator');
 
   if (!operatorUsername) {
-    location.href = '/';
+    showOperatorPicker();
     return;
+  }
+
+  async function showOperatorPicker() {
+    document.querySelector('.stage-shell').style.display = 'none';
+    el('connBadge').style.display = 'none';
+    document.querySelector('.version-mode').style.display = 'none';
+    el('pickerShell').classList.add('show');
+
+    let operators = [];
+    try {
+      const res = await fetch('/api/operators/online');
+      operators = await res.json();
+    } catch (err) { /* fall through to empty state */ }
+
+    if (!operators.length) {
+      el('pickerSelect').style.display = 'none';
+      el('pickerGoBtn').style.display = 'none';
+      el('pickerEmpty').style.display = 'block';
+      return;
+    }
+
+    const select = el('pickerSelect');
+    operators.forEach(op => select.add(new Option(op.locale, op.locale)));
+
+    const go = () => {
+      const chosen = select.value;
+      if (chosen) location.href = `/present?operator=${encodeURIComponent(chosen)}`;
+    };
+    el('pickerGoBtn').addEventListener('click', go);
+    select.addEventListener('keydown', e => { if (e.key === 'Enter') go(); });
   }
 
   const STORAGE_KEY = `mcgi-version-mode:${operatorUsername}`;
@@ -113,6 +143,9 @@
     }
 
     fitText();
+
+    const ref = `${payload.tagalogName || payload.book} ${payload.chapter}:${payload.verse}`;
+    document.title = `${ref} — ${operatorUsername} | MCGI Digital Bible`;
   }
 
   function renderPayload(payload) {
