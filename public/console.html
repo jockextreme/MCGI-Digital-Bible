@@ -37,6 +37,22 @@
   }
   .console-section .toolbar{ padding:0; }
   .console-section .presenter-panel{ padding:0; }
+
+  @media(max-width:640px){
+    .console-shell{ padding:14px 12px 32px; }
+    .top-bar{ gap:8px; }
+    .top-bar .shortcuts-hint{ display:none; } /* not usable on touch anyway */
+    .stage-shell{ max-height:38vh; }
+    .toolbar{ flex-direction:column; align-items:stretch; }
+    .toolbar input[type=text], .toolbar select, .toolbar .navbtn{
+      width:100%; height:40px; font-size:13px;
+    }
+    .toolbar .spacer{ display:none; }
+    .toolbar .tools{
+      flex-wrap:wrap; justify-content:center;
+    }
+    .toolbar .tools button{ flex:1 1 auto; min-width:44px; height:40px; }
+  }
 </style>
 </head>
 <body>
@@ -101,11 +117,11 @@
       <button class="navbtn" id="openPresenterBtn">Open Presenter Display ↗</button>
       <span class="presenter-hint" id="presenterHint"></span>
       <div class="spacer"></div>
-      <span class="shortcuts-hint">← → navigate · / search · F fullscreen · Esc close</span>
+      <span class="shortcuts-hint">← → navigate · / search · F fullscreen · B blank · Esc close</span>
       <button class="navbtn" id="logoutBtn">Log out</button>
     </div>
 
-    <p class="preview-label">Now Showing — this is what your audience sees</p>
+    <p class="preview-label">Now Showing (Confidence Monitor) — this is exactly what your audience sees, live</p>
     <div class="stage-shell">
       <div class="card" id="card">
         <div class="card-inner">
@@ -163,6 +179,7 @@
         <button id="historyBtn" class="navbtn" title="Recently shown verses">History</button>
         <button id="searchBtn" class="navbtn" title="Search verses">Search</button>
         <button id="copyVerseBtn" class="navbtn" title="Copy verse text and reference">Copy Verse</button>
+        <button id="blankScreenBtn" class="navbtn" title="Emergency blank screen (B)">Blank Screen</button>
         <div class="spacer"></div>
         <div class="tools">
           <button title="Reserved">D</button>

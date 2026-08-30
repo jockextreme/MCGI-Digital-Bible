@@ -41,6 +41,13 @@
   }
   .following-badge:hover{ opacity:1; }
 
+  .freeze-badge{
+    position:fixed; top:16px; left:50%; transform:translateX(-50%); z-index:10;
+    font-size:11.5px; font-weight:700;
+    color:#241a00; background:linear-gradient(180deg,var(--gold-soft),var(--gold));
+    padding:7px 16px; border-radius:999px;
+  }
+
   /* Shown instead of the stage when no ?operator= is given — plain
      background + text only, consistent with the borderless presenter rule. */
   .picker-shell{
@@ -71,20 +78,43 @@
   .picker-row:hover, .picker-row.selected{ background:rgba(255,255,255,0.07); }
   .picker-row .locale{ font-weight:700; font-size:14px; }
   .picker-row .viewers{ font-size:11.5px; color:#a9b6e0; white-space:nowrap; }
-  .picker-shell .picker-empty{ color:#7683ab; font-size:13px; }
+  .picker-shell .picker-empty{ color:#7683ab; font-size:13px; line-height:1.8; }
+
+  .picker-skeleton-row{
+    height:46px; border-radius:12px; margin-bottom:4px;
+    background:linear-gradient(90deg, rgba(255,255,255,0.05) 25%, rgba(255,255,255,0.1) 37%, rgba(255,255,255,0.05) 63%);
+    background-size:400% 100%;
+    animation:pickerShimmer 1.4s ease infinite;
+  }
+  @keyframes pickerShimmer{
+    0%{ background-position:100% 50%; }
+    100%{ background-position:0 50%; }
+  }
+
+  @media(max-width:640px){
+    .conn-badge, .following-badge, .freeze-badge{
+      font-size:10px; padding:5px 10px;
+    }
+    .following-badge{ left:10px; top:10px; max-width:38vw; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+    .conn-badge{ right:10px; top:10px; }
+    .freeze-badge{ top:auto; bottom:70px; }
+    .version-mode{ bottom:10px; left:10px; }
+    .version-mode select{ font-size:10px; padding:5px 10px; }
+  }
 </style>
 </head>
 <body>
 
   <div class="conn-badge" id="connBadge">Connecting…</div>
   <div class="following-badge" id="followingBadge" style="display:none;"></div>
+  <div class="freeze-badge" id="freezeBadge" style="display:none;"></div>
 
   <div class="picker-shell" id="pickerShell">
     <h1>Select an Operator</h1>
     <p>Choose who you want to follow — you'll see whatever verse they're currently showing, live.</p>
-    <input type="text" class="picker-search" id="pickerSearch" placeholder="Search by locale…" style="display:none;" />
-    <div class="picker-list" id="pickerList"></div>
-    <p class="picker-empty" id="pickerEmpty" style="display:none;">No operators are online right now. Check back once a service starts, or ask your operator for their direct link.</p>
+    <input type="text" class="picker-search" id="pickerSearch" placeholder="Search by locale…" aria-label="Search operators by locale" style="display:none;" />
+    <div class="picker-list" id="pickerList" role="list" aria-label="Online operators"></div>
+    <p class="picker-empty" id="pickerEmpty" style="display:none;">📡<br>No operators are online right now.<br>Check back once a service starts, or ask your operator for their direct link.</p>
   </div>
 
   <div class="version-mode">
