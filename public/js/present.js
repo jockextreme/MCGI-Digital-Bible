@@ -23,28 +23,51 @@
     document.querySelector('.version-mode').style.display = 'none';
     el('pickerShell').classList.add('show');
 
-    let operators = [];
+    let allOps = [];
     try {
       const res = await fetch('/api/operators/online');
-      operators = await res.json();
+      allOps = await res.json();
     } catch (err) { /* fall through to empty state */ }
 
-    if (!operators.length) {
-      el('pickerSelect').style.display = 'none';
-      el('pickerGoBtn').style.display = 'none';
+    if (!allOps.length) {
       el('pickerEmpty').style.display = 'block';
       return;
     }
 
-    const select = el('pickerSelect');
-    operators.forEach(op => select.add(new Option(op.locale, op.locale)));
+    if (allOps.length > 5) el('pickerSearch').style.display = '';
 
-    const go = () => {
-      const chosen = select.value;
-      if (chosen) location.href = `/present?operator=${encodeURIComponent(chosen)}`;
-    };
-    el('pickerGoBtn').addEventListener('click', go);
-    select.addEventListener('keydown', e => { if (e.key === 'Enter') go(); });
+    function escapeHtml(s) {
+      return (s || '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+    }
+
+    function renderList(ops) {
+      const listEl = el('pickerList');
+      if (!ops.length) {
+        listEl.innerHTML = '<p class="picker-empty">No locale matches that search.</p>';
+        return;
+      }
+      listEl.innerHTML = ops.map(op => {
+        const count = op.viewerCount || 0;
+        const label = count === 1 ? '1 watching' : `${count} watching`;
+        return `<div class="picker-row" tabindex="0" data-locale="${escapeHtml(op.locale)}">
+          <span class="locale">${escapeHtml(op.locale)}</span>
+          <span class="viewers">${label}</span>
+        </div>`;
+      }).join('');
+
+      listEl.querySelectorAll('.picker-row').forEach(row => {
+        const go = () => { location.href = `/present?operator=${encodeURIComponent(row.dataset.locale)}`; };
+        row.addEventListener('click', go);
+        row.addEventListener('keydown', e => { if (e.key === 'Enter') go(); });
+      });
+    }
+
+    renderList(allOps);
+
+    el('pickerSearch').addEventListener('input', () => {
+      const q = el('pickerSearch').value.trim().toLowerCase();
+      renderList(q ? allOps.filter(op => op.locale.toLowerCase().includes(q)) : allOps);
+    });
   }
 
   const STORAGE_KEY = `mcgi-version-mode:${operatorUsername}`;
@@ -198,6 +221,9 @@
 
     ws.addEventListener('open', () => {
       el('connBadge').classList.add('connected');
+      const badge = el('followingBadge');
+      badge.textContent = `Following: ${operatorUsername}`;
+      badge.style.display = '';
     });
     ws.addEventListener('close', () => {
       el('connBadge').classList.remove('connected');
@@ -226,6 +252,13 @@
   window.addEventListener('resize', () => {
     fitText();
     applySafeMargin(document.querySelector('.card-inner'), lastSafeMargin, el('card').clientWidth);
+  });
+
+  document.addEventListener('keydown', e => {
+    if (e.key === 'f' || e.key === 'F') {
+      if (!document.fullscreenElement) document.documentElement.requestFullscreen().catch(() => {});
+      else document.exitFullscreen();
+    }
   });
 
   Promise.all([loadFontTable(), loadVersions()]).then(connect);

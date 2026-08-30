@@ -253,6 +253,7 @@
     el('arBtn').addEventListener('click', toggleAutoResize);
     el('searchBtn').addEventListener('click', openSearch);
     el('historyBtn').addEventListener('click', openHistory);
+    el('copyVerseBtn').addEventListener('click', copyVerseToClipboard);
     el('sBtn').addEventListener('click', openFontSettings);
     el('refreshBtn').addEventListener('click', render);
     el('topBtn').addEventListener('click', toggleFullscreen);
@@ -347,6 +348,7 @@
     if (e.key === 'ArrowRight') { e.preventDefault(); step(1); }
     else if (e.key === 'ArrowLeft') { e.preventDefault(); step(-1); }
     else if (e.key === '/') { e.preventDefault(); openSearch(); }
+    else if (e.key === 'f' || e.key === 'F') { e.preventDefault(); toggleFullscreen(); }
   }
 
   // Keeps a lightweight WebSocket open purely so this operator shows up as
@@ -537,6 +539,33 @@
       toast.classList.remove('show');
       setTimeout(() => toast.remove(), 250);
     }, duration || 3000);
+  }
+
+  // ---------- Copy Verse ----------
+  async function copyVerseToClipboard() {
+    const ref = el('stageRef').textContent.trim();
+    const version = el('stageVersion').textContent.trim();
+    const text = el('stageText').textContent.trim();
+    const formatted = `${ref} (${version})\n${text}`;
+
+    try {
+      await navigator.clipboard.writeText(formatted);
+      showToast('Verse copied to clipboard.');
+    } catch (err) {
+      const textarea = document.createElement('textarea');
+      textarea.value = formatted;
+      textarea.style.position = 'fixed';
+      textarea.style.opacity = '0';
+      document.body.appendChild(textarea);
+      textarea.select();
+      try {
+        document.execCommand('copy');
+        showToast('Verse copied to clipboard.');
+      } catch (err2) {
+        showToast('Could not copy — try selecting the text manually.');
+      }
+      textarea.remove();
+    }
   }
 
   // ---------- Auto-resize (matches the app's Font Setting table) ----------
