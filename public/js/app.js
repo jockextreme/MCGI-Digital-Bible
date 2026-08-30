@@ -36,6 +36,7 @@
   // ---------- Auth (login/register gate) ----------
   async function boot() {
     wireAuthForm();
+    trapFocus(el('authOverlay'));
     const me = await api('/auth/me').catch(() => null);
     if (me) {
       state.operator = me;
@@ -58,6 +59,8 @@
     el('authSwitchText').textContent = mode === 'login' ? 'No locale registered yet?' : 'Already have one?';
     el('authSwitchLink').textContent = mode === 'login' ? 'Register one' : 'Sign in instead';
     el('authError').textContent = '';
+    el('authLocaleStatus').textContent = '';
+    el('authLocaleStatus').className = 'auth-help';
   }
 
   function wireAuthForm() {
@@ -70,6 +73,42 @@
     [el('authLocale'), el('authPassword')].forEach(input => {
       input.addEventListener('keydown', e => { if (e.key === 'Enter') submitAuthForm(); });
     });
+
+    el('authPasswordToggle').addEventListener('click', () => {
+      const input = el('authPassword');
+      const btn = el('authPasswordToggle');
+      const showing = input.type === 'text';
+      input.type = showing ? 'password' : 'text';
+      btn.textContent = showing ? '👁' : '🙈';
+      btn.setAttribute('aria-label', showing ? 'Show password' : 'Hide password');
+    });
+
+    el('authLocale').addEventListener('input', debounce(checkLocaleAvailability, 350));
+  }
+
+  async function checkLocaleAvailability() {
+    const statusEl = el('authLocaleStatus');
+    if (state.authMode !== 'register') { statusEl.textContent = ''; return; }
+    const locale = el('authLocale').value.trim();
+    if (locale.length < 2) { statusEl.textContent = ''; statusEl.className = 'auth-help'; return; }
+
+    statusEl.textContent = 'Checking…';
+    statusEl.className = 'auth-help status-checking';
+    try {
+      const data = await api('/auth/check-locale?locale=' + encodeURIComponent(locale));
+      if (!data.valid) {
+        statusEl.textContent = '2-40 characters — letters, numbers, spaces, hyphens.';
+        statusEl.className = 'auth-help status-taken';
+      } else if (data.available) {
+        statusEl.textContent = `"${locale}" is available.`;
+        statusEl.className = 'auth-help status-available';
+      } else {
+        statusEl.textContent = `"${locale}" is already taken — try another.`;
+        statusEl.className = 'auth-help status-taken';
+      }
+    } catch (err) {
+      statusEl.textContent = '';
+    }
   }
 
   async function submitAuthForm() {
@@ -216,23 +255,103 @@
 
     el('searchCloseX').addEventListener('click', closeSearch);
     el('searchInput').addEventListener('input', debounce(doSearch, 200));
+    el('searchInput').addEventListener('keydown', e => {
+      if (e.key === 'ArrowDown') { e.preventDefault(); navigateResultList(el('searchResults'), 1); }
+      else if (e.key === 'ArrowUp') { e.preventDefault(); navigateResultList(el('searchResults'), -1); }
+      else if (e.key === 'Enter') { e.preventDefault(); activateSelectedResult(el('searchResults')); }
+    });
     el('historyCloseX').addEventListener('click', closeHistory);
 
     window.addEventListener('resize', () => fitText());
     document.addEventListener('fullscreenchange', () => setTimeout(fitText, 50));
+    document.addEventListener('keydown', handleGlobalKeydown);
+    [el('fsOverlay'), el('searchOverlay'), el('historyOverlay')].forEach(trapFocus);
 
     render();
   }
 
+  // ---------- Keyboard shortcuts ----------
+  // Ignored while typing in a text field/select, except Escape (which should
+  // always be able to close a dialog, even from inside the search box).
+  function isTypingTarget(node) {
+    return node && (node.tagName === 'INPUT' || node.tagName === 'TEXTAREA' || node.tagName === 'SELECT');
+  }
+
+  function closeAnyOpenDialog() {
+    const overlays = ['fsOverlay', 'searchOverlay', 'historyOverlay'];
+    for (const id of overlays) {
+      const overlay = el(id);
+      if (overlay && overlay.classList.contains('open')) {
+        overlay.classList.remove('open');
+        return true;
+      }
+    }
+    return false;
+  }
+
+  // Keeps Tab/Shift+Tab cycling within an open dialog instead of escaping to
+  // the page behind it. Safe to attach once — the overlay stays in the DOM,
+  // and closed overlays use visibility:hidden, which browsers already
+  // exclude from the tab order on their own.
+  function trapFocus(overlayEl) {
+    overlayEl.addEventListener('keydown', e => {
+      if (e.key !== 'Tab') return;
+      const focusables = Array.from(
+        overlayEl.querySelectorAll('button, input, select, textarea, a[href], [tabindex]:not([tabindex="-1"])')
+      ).filter(elm => !elm.disabled && elm.offsetParent !== null);
+      if (!focusables.length) return;
+      const first = focusables[0];
+      const last = focusables[focusables.length - 1];
+      if (e.shiftKey && document.activeElement === first) {
+        e.preventDefault(); last.focus();
+      } else if (!e.shiftKey && document.activeElement === last) {
+        e.preventDefault(); first.focus();
+      }
+    });
+  }
+
+  function handleGlobalKeydown(e) {
+    if (e.key === 'Escape') {
+      closeAnyOpenDialog();
+      return;
+    }
+
+    if (el('historyOverlay').classList.contains('open')) {
+      if (e.key === 'ArrowDown') { e.preventDefault(); navigateResultList(el('historyResults'), 1); }
+      else if (e.key === 'ArrowUp') { e.preventDefault(); navigateResultList(el('historyResults'), -1); }
+      else if (e.key === 'Enter') { e.preventDefault(); activateSelectedResult(el('historyResults')); }
+      return;
+    }
+    if (el('searchOverlay').classList.contains('open')) return; // search input handles its own arrow keys
+
+    if (isTypingTarget(document.activeElement)) return;
+
+    if (e.key === 'ArrowRight') { e.preventDefault(); step(1); }
+    else if (e.key === 'ArrowLeft') { e.preventDefault(); step(-1); }
+    else if (e.key === '/') { e.preventDefault(); openSearch(); }
+  }
+
   // Keeps a lightweight WebSocket open purely so this operator shows up as
-  // "online" on the /operators picker page. Reconnects automatically.
+  // "online" on the homepage, and to receive live viewer-count updates.
   function connectPresenceSocket() {
     api('/auth/ws-token').then(({ token }) => {
       const proto = location.protocol === 'https:' ? 'wss:' : 'ws:';
       const ws = new WebSocket(`${proto}//${location.host}/ws?role=operator&token=${token}`);
+      ws.addEventListener('message', evt => {
+        try {
+          const msg = JSON.parse(evt.data);
+          if (msg.type === 'viewerCount') updateViewerCountBadge(msg.count);
+        } catch (err) { /* ignore malformed messages */ }
+      });
       ws.addEventListener('close', () => setTimeout(connectPresenceSocket, 3000));
       ws.addEventListener('error', () => ws.close());
     }).catch(() => setTimeout(connectPresenceSocket, 3000));
+  }
+
+  function updateViewerCountBadge(count) {
+    const badge = el('viewerCountBadge');
+    if (!badge) return;
+    badge.textContent = count === 1 ? '1 watching' : `${count} watching`;
   }
 
   function debounce(fn, ms) {
@@ -488,6 +607,22 @@
   }
   function closeSearch() { el('searchOverlay').classList.remove('open'); }
 
+  // Arrow-key navigation shared by any results list rendered as
+  // .search-result rows inside a container — used by both Search and History.
+  function navigateResultList(containerEl, direction) {
+    const items = Array.from(containerEl.querySelectorAll('.search-result'));
+    if (!items.length) return;
+    let index = items.findIndex(item => item.classList.contains('selected'));
+    items.forEach(item => item.classList.remove('selected'));
+    index = index === -1 ? (direction > 0 ? 0 : items.length - 1) : (index + direction + items.length) % items.length;
+    items[index].classList.add('selected');
+    items[index].scrollIntoView({ block: 'nearest' });
+  }
+  function activateSelectedResult(containerEl) {
+    const selected = containerEl.querySelector('.search-result.selected') || containerEl.querySelector('.search-result');
+    if (selected) selected.click();
+  }
+
   async function doSearch() {
     const query = el('searchInput').value.trim();
     const resultsEl = el('searchResults');
@@ -515,7 +650,12 @@
 
     metaEl.textContent = data.results.length
       ? `${data.results.length}${data.truncated ? '+' : ''} match${data.results.length === 1 ? '' : 'es'}`
-      : `No matches for "${query}".`;
+      : '';
+
+    if (!data.results.length) {
+      resultsEl.innerHTML = `<div class="empty-dialog-state">🔍<br>No matches for "${escapeHtml(query)}".</div>`;
+      return;
+    }
 
     resultsEl.innerHTML = data.results.map((m, i) => {
       const ref = `${m.tagalogName} ${m.chapter}:${m.verse}`;
@@ -576,7 +716,13 @@
 
     metaEl.textContent = entries.length
       ? `${entries.length} recent reference${entries.length === 1 ? '' : 's'} — click to go back.`
-      : 'Nothing shown yet this session.';
+      : '';
+
+    if (!entries.length) {
+      resultsEl.innerHTML = `<div class="empty-dialog-state">🕘<br>Nothing shown yet this session.</div>`;
+      el('historyOverlay').classList.add('open');
+      return;
+    }
 
     resultsEl.innerHTML = entries.map((entry, i) => {
       const ref = `${displayBookName(entry.book)} ${entry.chapter}:${entry.verse}`;

@@ -84,8 +84,9 @@
     }
   }
 
-  function renderPayload(payload) {
-    if (!payload) return;
+  let hasRenderedOnce = false;
+
+  function applyPayloadContent(payload) {
     el('stageRef').textContent = `${(payload.tagalogName || payload.book || '').toUpperCase()} ${payload.chapter}:${payload.verse}`;
     el('stageVersion').textContent = payload.versionDisplayName || payload.version || '';
     el('stageText').textContent = payload.found
@@ -112,6 +113,24 @@
     }
 
     fitText();
+  }
+
+  function renderPayload(payload) {
+    if (!payload) return;
+    const inner = document.querySelector('.card-inner');
+
+    // Don't fade on the very first paint — only when swapping one verse for another.
+    if (!hasRenderedOnce) {
+      hasRenderedOnce = true;
+      applyPayloadContent(payload);
+      return;
+    }
+
+    inner.classList.add('fading');
+    setTimeout(() => {
+      applyPayloadContent(payload);
+      inner.classList.remove('fading');
+    }, 150);
   }
 
   // Called whenever a new reference arrives from the operator, AND whenever
