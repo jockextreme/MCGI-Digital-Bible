@@ -65,6 +65,7 @@ function registerOperatorSocket(username, ws) {
   }
   room.operatorSocket = ws;
   ws.send(JSON.stringify({ type: 'verse', payload: getCurrentPayload(username) }));
+  ws.send(JSON.stringify({ type: 'viewerCount', count: room.viewerSockets.size }));
   ws.on('close', () => { if (room.operatorSocket === ws) room.operatorSocket = null; });
 }
 
@@ -73,7 +74,23 @@ function registerViewerSocket(username, ws) {
   const room = getRoom(username);
   room.viewerSockets.add(ws);
   ws.send(JSON.stringify({ type: 'verse', payload: getCurrentPayload(username) }));
-  ws.on('close', () => room.viewerSockets.delete(ws));
+  notifyViewerCount(username);
+  ws.on('close', () => {
+    room.viewerSockets.delete(ws);
+    notifyViewerCount(username);
+  });
+}
+
+function getViewerCount(username) {
+  const room = rooms.get(username);
+  return room ? room.viewerSockets.size : 0;
+}
+
+function notifyViewerCount(username) {
+  const room = getRoom(username);
+  if (room.operatorSocket && room.operatorSocket.readyState === room.operatorSocket.OPEN) {
+    room.operatorSocket.send(JSON.stringify({ type: 'viewerCount', count: room.viewerSockets.size }));
+  }
 }
 
 function isOperatorOnline(username) {
@@ -95,5 +112,6 @@ module.exports = {
   registerOperatorSocket,
   registerViewerSocket,
   isOperatorOnline,
-  listOnlineUsernames
+  listOnlineUsernames,
+  getViewerCount
 };
