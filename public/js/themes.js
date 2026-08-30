@@ -1,7 +1,9 @@
 // Background themes for the presentation card. "default" uses your own
-// photo at /img/background.jpg. "black" and "chroma" are solid colors —
-// chroma is a standard green-screen green, for compositing the card into a
-// live production (OBS, vMix, etc.) with the background keyed out.
+// photo at /img/background.jpg. Solid/gradient themes are kept dark on
+// purpose — the verse text color (white/yellow) is hardcoded for
+// readability against dark backgrounds, so a light theme would make text
+// hard to read; if you want a light theme later, the text color rules in
+// style.css would need a per-theme override too.
 //
 // To add more (e.g. a themed background for a special event), add an entry
 // here with type:'image' and a src pointing to a file you've placed under
@@ -10,7 +12,10 @@
 const BACKGROUND_THEMES = [
   { key: 'default', label: 'Default', type: 'image', src: '/img/background.jpg' },
   { key: 'black', label: 'Black', type: 'color', value: '#000000' },
-  { key: 'chroma', label: 'Chroma (Green Screen)', type: 'color', value: '#00b140' }
+  { key: 'chroma', label: 'Chroma (Green Screen)', type: 'color', value: '#00b140' },
+  { key: 'navy', label: 'Navy', type: 'color', value: '#0a1a4a' },
+  { key: 'classic', label: 'Classic Bible', type: 'gradient',
+    value: 'radial-gradient(140% 120% at 50% 0%, rgba(224,168,60,0.14), transparent 60%), linear-gradient(165deg, #2b1810 0%, #1a0f08 55%, #0d0704 100%)' }
 ];
 
 function applyBackgroundTheme(cardEl, themeKey) {
@@ -18,6 +23,8 @@ function applyBackgroundTheme(cardEl, themeKey) {
   if (theme.type === 'image') {
     cardEl.style.backgroundColor = '#081226';
     cardEl.style.backgroundImage = `url('${theme.src}')`;
+  } else if (theme.type === 'gradient') {
+    cardEl.style.backgroundImage = theme.value;
   } else {
     cardEl.style.backgroundImage = 'none';
     cardEl.style.backgroundColor = theme.value;

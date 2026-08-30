@@ -8,6 +8,8 @@
   let versions = [];
   let lastReference = null; // { book, chapter, verse } from whatever the operator last sent
   let lastSafeMargin = 0;
+  let frozen = false;
+  let hasPendingUpdate = false;
 
   const params = new URLSearchParams(location.search);
   const operatorUsername = params.get('operator');
@@ -23,11 +25,15 @@
     document.querySelector('.version-mode').style.display = 'none';
     el('pickerShell').classList.add('show');
 
+    el('pickerList').innerHTML = '<div class="picker-skeleton-row"></div><div class="picker-skeleton-row"></div><div class="picker-skeleton-row"></div>';
+
     let allOps = [];
     try {
       const res = await fetch('/api/operators/online');
       allOps = await res.json();
     } catch (err) { /* fall through to empty state */ }
+
+    el('pickerList').innerHTML = '';
 
     if (!allOps.length) {
       el('pickerEmpty').style.display = 'block';
@@ -49,7 +55,7 @@
       listEl.innerHTML = ops.map(op => {
         const count = op.viewerCount || 0;
         const label = count === 1 ? '1 watching' : `${count} watching`;
-        return `<div class="picker-row" tabindex="0" data-locale="${escapeHtml(op.locale)}">
+        return `<div class="picker-row" tabindex="0" role="button" aria-label="Follow ${escapeHtml(op.locale)}, ${label}" data-locale="${escapeHtml(op.locale)}">
           <span class="locale">${escapeHtml(op.locale)}</span>
           <span class="viewers">${label}</span>
         </div>`;
@@ -140,6 +146,18 @@
   let hasRenderedOnce = false;
 
   function applyPayloadContent(payload) {
+    const card = el('card');
+    if (payload.blank) {
+      card.classList.add('emergency-blank');
+      el('stageRef').textContent = '';
+      el('stageVersion').textContent = '';
+      el('stageText').textContent = '';
+      el('crossrefs').innerHTML = '';
+      document.title = 'MCGI Digital Bible';
+      return;
+    }
+    card.classList.remove('emergency-blank');
+
     el('stageRef').textContent = `${(payload.tagalogName || payload.book || '').toUpperCase()} ${payload.chapter}:${payload.verse}`;
     el('stageVersion').textContent = payload.versionDisplayName || payload.version || '';
     el('stageText').textContent = payload.found
@@ -241,7 +259,11 @@
             verse: msg.payload.verse,
             operatorPayload: msg.payload
           };
-          refreshDisplay();
+          if (frozen) {
+            hasPendingUpdate = true;
+          } else {
+            refreshDisplay();
+          }
         }
       } catch (err) {
         console.error('Bad message from server', err);
@@ -254,10 +276,24 @@
     applySafeMargin(document.querySelector('.card-inner'), lastSafeMargin, el('card').clientWidth);
   });
 
+  function toggleFreeze() {
+    frozen = !frozen;
+    const badge = el('freezeBadge');
+    if (frozen) {
+      badge.style.display = '';
+      badge.textContent = 'Paused — press P to resume';
+    } else {
+      badge.style.display = 'none';
+      if (hasPendingUpdate) { hasPendingUpdate = false; refreshDisplay(); }
+    }
+  }
+
   document.addEventListener('keydown', e => {
     if (e.key === 'f' || e.key === 'F') {
       if (!document.fullscreenElement) document.documentElement.requestFullscreen().catch(() => {});
       else document.exitFullscreen();
+    } else if (e.key === 'p' || e.key === 'P') {
+      toggleFreeze();
     }
   });
 

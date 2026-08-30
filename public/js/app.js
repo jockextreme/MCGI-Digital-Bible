@@ -11,7 +11,8 @@
     operator: null,        // { id, locale, isPublic, lastVersion, lastBook, lastChapter, lastVerse, lastBackground, lastSafeMargin }
     authMode: 'login',     // 'login' | 'register'
     history: [],           // recently shown references, most recent last
-    previewMode: { type: 'auto', version: null } // local-only, doesn't affect the broadcast
+    previewMode: { type: 'auto', version: null }, // local-only, doesn't affect the broadcast
+    blank: false
   };
   const FONT_SIZES = { 1: 34, 2: 40, 3: 46 };
   const DESIGN_WIDTH = 1920;
@@ -254,6 +255,7 @@
     el('searchBtn').addEventListener('click', openSearch);
     el('historyBtn').addEventListener('click', openHistory);
     el('copyVerseBtn').addEventListener('click', copyVerseToClipboard);
+    el('blankScreenBtn').addEventListener('click', toggleBlankScreen);
     el('sBtn').addEventListener('click', openFontSettings);
     el('refreshBtn').addEventListener('click', render);
     el('topBtn').addEventListener('click', toggleFullscreen);
@@ -349,6 +351,7 @@
     else if (e.key === 'ArrowLeft') { e.preventDefault(); step(-1); }
     else if (e.key === '/') { e.preventDefault(); openSearch(); }
     else if (e.key === 'f' || e.key === 'F') { e.preventDefault(); toggleFullscreen(); }
+    else if (e.key === 'b' || e.key === 'B') { e.preventDefault(); toggleBlankScreen(); }
   }
 
   // Keeps a lightweight WebSocket open purely so this operator shows up as
@@ -539,6 +542,23 @@
       toast.classList.remove('show');
       setTimeout(() => toast.remove(), 250);
     }, duration || 3000);
+  }
+
+  // ---------- Emergency Blank Screen ----------
+  async function toggleBlankScreen() {
+    state.blank = !state.blank;
+    el('blankScreenBtn').classList.toggle('blank-active', state.blank);
+    el('blankScreenBtn').textContent = state.blank ? 'Unblank Screen' : 'Blank Screen';
+    try {
+      await api('/live-state/blank', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ blank: state.blank })
+      });
+      showToast(state.blank ? 'Presenter is now blank.' : 'Presenter restored.');
+    } catch (err) {
+      showToast('Could not update blank screen — is the server running?');
+    }
   }
 
   // ---------- Copy Verse ----------
