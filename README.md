@@ -85,36 +85,56 @@ mcgi-digital-bible/
 
 ## Landing page, operator accounts & multiple simultaneous operators
 
-**The homepage (`/`) is a simple landing page** with two entry points: "I
-Am an Operator" (→ `/control`) and "I Am a Viewer" (→ `/present`). No
-directory or live previews here anymore — that's planned for a later phase.
-For now, viewers either use a direct link an operator shares
-(`/present?operator=<locale>`), or open `/present` with no link at all and
-pick from a plain dropdown of whoever's currently online.
+**The homepage (`/`) is a full landing page** — hero, "What this is," "Why
+it was made," "Who it is for," "About the original," "How to use," and two
+entry points: "I Am an Operator" (→ `/control`) and "I Am a Viewer" (→
+`/present`). Viewers either use a direct link an operator shares
+(`/present?locale=<locale>`), or open `/present` with no link at all and
+pick from a searchable list of whoever's currently online.
 
 **The control panel lives at `/control`** (the old `/console` URL still
 works — it just redirects there). That's where you register/log in and
 actually run a service. Open signup, no admin approval, no email
 verification — meant for your own team/congregations, not gated.
 
-Instead of a generic username, operators register with a **locale** — a
-place name like "Ugong" or "San Juan" — since that's what actually
-identifies a congregation/service in this context. At registration you also
-choose:
-- **Public** — shown in the dropdown on `/present` (the picker viewers see when they open it with no direct link).
+### Locale + Operator identity
+
+Accounts have **two separate fields**, not one:
+- **Locale** — a place name like "Ugong" or "San Juan," identifying the
+  congregation/service.
+- **Operator name** — the person running it, like "Bro. Juan."
+
+**Multiple operators can share one locale** (operator name only needs to
+be unique *within* that locale, not globally — "Ugong · Bro. Juan" and
+"San Juan · Bro. Juan" can coexist just fine). Everywhere in the UI, both
+are shown together: `Ugong · Bro. Juan`.
+
+Viewers follow by **locale**, not by individual operator
+(`/present?locale=Ugong`) — the room is shared. If two operators are
+signed in under the same locale, whichever one connects most recently
+becomes the active broadcaster (their socket takes over; the previous one
+is closed). This matches "prefer one active broadcaster per locale" — the
+UI doesn't prevent multiple people signing in under one locale, but only
+one can actually be driving the display at a time.
+
+At registration you also choose:
+- **Public** — shown in the picker on `/present` (only while that specific
+  operator account is the one actively connected for their locale).
 - **Private** — not listed anywhere; only reachable if someone has your
-  direct `/present?operator=<locale>` link. Toggle this anytime from the
-  console (top bar, next to your account badge).
+  direct `/present?locale=<locale>` link. Toggle this anytime from the
+  control panel (top bar, next to your account badge).
 
 What accounts buy you:
-- **Each operator has their own independent "room."** Two people can run
-  two completely separate services at the same time (e.g. a Tagalog service
-  and an English service) without interfering with each other.
+- **Each locale has its own independent broadcast room.** Two locales can
+  run two completely separate services at the same time without
+  interfering with each other.
 - **Resume where you left off.** Your last book/chapter/verse/version is
   saved automatically every time you navigate, and restored the next time
-  you log in.
-- **Viewers pick which operator to follow** from the homepage, or go
-  straight to `/present?operator=<locale>` if they already know it.
+  *that specific operator account* logs in (resume points are per-account,
+  even though the room itself is shared per-locale).
+- **Copy Presenter Link** — a button next to "Open Presenter Display"
+  copies the shareable `/present?locale=<locale>` URL straight to the
+  clipboard.
 
 Passwords are hashed with Node's built-in `crypto.scrypt` (no extra
 dependency). Sessions use `express-session` with its default in-memory
@@ -124,18 +144,30 @@ deployments. If this ever needs to scale beyond a handful of operators or
 run across multiple server instances, swap in a real session store (e.g.
 `connect-sqlite3` or Redis).
 
-### Inactivity cleanup
+### Temporary accounts — 1 hour
 
-Operator accounts that haven't been active (logged in, or posted a
-live-state update) in **90 days** are automatically deleted — a cleanup job
-runs once on server boot and then once every 24 hours
-(`server/cleanup.js`). This keeps stale/abandoned locale names from
-squatting on the directory forever. Adjust the threshold with the
-`INACTIVITY_DELETE_DAYS` environment variable.
+Operator accounts are **intentionally temporary**, not permanent logins.
+An account is deleted after **60 minutes of inactivity** — a cleanup job
+runs once on server boot and then every 5 minutes (`server/cleanup.js`).
+"Inactivity" means no login, no live-state update, and no heartbeat.
+
+The control panel sends a lightweight heartbeat
+(`POST /api/auth/heartbeat`) every 2 minutes while it's open, specifically
+so an operator who's just sitting on the page mid-service — not actively
+clicking Next/Prev the whole time — doesn't get swept mid-broadcast.
+Adjust the threshold with the `INACTIVITY_DELETE_MINUTES` environment
+variable.
+
+**Breaking change note:** this replaced an earlier single-field "locale =
+account identity" model. If you're upgrading an existing deployment, the
+old `operators` table is dropped and recreated on first boot — any
+existing accounts are wiped. Given the 1-hour temporary nature of these
+accounts, that's an acceptable one-time reset, not data loss of anything
+meant to persist.
 
 ## Presenter/Audience split view
 
-The **presenter view** (`/present?operator=<locale>`) is a clean,
+The **presenter view** (`/present?locale=<locale>`) is a clean,
 **strictly borderless** display meant for the projector/TV/livestream feed
 — background and text only, no card frame, no outline, by design (this is
 a hard rule, not a style choice: nothing should be added back that puts a
@@ -174,6 +206,31 @@ currently-shown reference, version, and text to the clipboard as plain
 text (e.g. for pasting into an announcement or chat). Falls back to a
 manual-selection method on browsers/contexts where the Clipboard API isn't
 available (like non-HTTPS local testing).
+
+### Emergency Blank Screen
+
+The control panel's **Blank Screen** button (or **B** key) instantly forces
+the presenter to plain black — overriding whatever theme is active —
+without touching the current verse reference. Un-blanking restores exactly
+what was showing before. This is a live-only toggle, deliberately not
+saved to the database as a resume point (you wouldn't want a service to
+silently restart blank because it was blanked at the end of the last one).
+
+### Freeze / Pause Follow (viewer-side)
+
+Press **P** on the presenter/viewer page to pause following the operator —
+useful if a viewer wants to keep reading a verse at their own pace while
+the operator moves ahead. A "Paused — press P to resume" badge appears
+while frozen. Unfreezing immediately catches up to whatever the operator
+is showing now (it doesn't play back everything that was missed).
+
+### Background Themes
+
+Five themes now: Default (your photo), Black, Chroma (green-screen),
+Navy, and Classic Bible (a dark leather/gold gradient). All are kept dark
+on purpose — the verse text color is hardcoded white/yellow for
+readability against dark backgrounds, so a light theme would need a
+text-color override to stay legible (not implemented yet).
 
 ### Auto vs Manual Version Mode (viewer-side)
 
@@ -277,33 +334,55 @@ start feeling like a border again.
 - `GET /api/search?version=ADB&q=pag-ibig` — full-text search, ranked, capped at 60 results.
 - `GET /api/font-settings` — the 14-row content-length → font-size table.
 - `PUT /api/font-settings` — body `[{ rangeIndex, fontSize }, ...]`, persists edits.
-- `POST /api/auth/register` — body `{ locale, password, isPublic }`, logs you in immediately.
-- `POST /api/auth/login` — body `{ locale, password }` (locale match is case-insensitive).
+- `POST /api/auth/register` — body `{ locale, operatorName, password, isPublic }`, logs you in immediately.
+- `POST /api/auth/login` — body `{ locale, operatorName, password }` (both fields matched case-insensitively).
 - `POST /api/auth/logout`
 - `GET /api/auth/me` — current session's operator, or `null`.
+- `POST /api/auth/heartbeat` — (requires login) refreshes `last_active_at` so the 1-hour inactivity cleanup doesn't sweep an open-but-idle session.
+- `GET /api/auth/check-operator?locale=Ugong&operatorName=Bro.%20Juan` — real-time availability check for a locale+operator-name pair.
 - `PUT /api/auth/visibility` — body `{ isPublic }`, toggle public/private anytime.
 - `GET /api/auth/ws-token` — one-time token for the operator's authenticated WebSocket connection.
-- `GET /api/operators/online` — **public** operators currently broadcasting, each with a live preview (reference, version, text snippet). Powers the homepage.
-- `GET /api/live-state?operator=<locale>` — an operator's current reference.
-- `POST /api/live-state` — (requires login) body `{ version, book, chapter, verse, background, safeMargin }`; updates and broadcasts the logged-in operator's own room, and saves it as their resume point.
+- `GET /api/operators/online` — locales with an active, **public** operator connected, each with a live preview (reference, version, text snippet) and the connected operator's name. Powers the `/present` picker.
+- `GET /api/live-state?locale=<locale>` — that locale's current reference.
+- `POST /api/live-state` — (requires login) body `{ version, book, chapter, verse, background, safeMargin }`; updates and broadcasts the logged-in operator's locale room, and saves the resume point to their own account.
+- `POST /api/live-state/blank` — (requires login) body `{ blank: true|false }`; emergency blank screen for the operator's locale room.
 
 ## Bible text data
 
-Two complete, **public-domain** translations are seeded from
-`server/seed/adb.json` and `server/seed/kjv.json`:
+Three complete, **public-domain** translations are seeded from
+`server/seed/*.json`:
 
 - **Ang Dating Biblia** (Tagalog, 1905) — 31,102 verses
 - **King James Version** (English) — 31,102 verses
+- **Reina-Valera 1909** (Spanish) — 31,084 verses
 
-Both were sourced from the public-domain `seven1m/open-bibles` OSIS text
-corpus — **not** from the original "Digital Bible" desktop app's own
-`.db3` files, which are encrypted/obfuscated and were deliberately left
-alone rather than reverse-engineered.
+All three were sourced from the public-domain `seven1m/open-bibles` text
+corpus (ADB/KJV from OSIS format, Reina-Valera from USFX format — see
+`server/seed/seed.js`'s comments for the parser differences) — **not** from
+the original "Digital Bible" desktop app's own `.db3` files, which are
+encrypted/obfuscated and were deliberately left alone rather than
+reverse-engineered.
 
-Four other versions appear in the dropdown (Ang Biblia 1905, Ang Biblia
-1982, Ang Bagong Ang Biblia, AKJV) but have **no text loaded** — `hasData`
-is `false` for them in the API and the UI shows "no text loaded." To add
-one, find a public-domain source, shape it into the same
+Several other versions appear in the dropdown but have **no text loaded**
+(`hasData: false` in the API, "no text loaded" in the UI): Ang Biblia 1905,
+Ang Biblia 1982, Ang Bagong Ang Biblia, AKJV, KJV 1611, New King James
+Version, NIV, ESV, and "KJV (MCGI Modified)". These are listed because
+they were explicitly requested, but each has a real obstacle:
+
+- **NIV, ESV, NKJV** are actively copyrighted (Biblica, Crossway, and
+  Thomas Nelson respectively) — embedding full text without a license
+  would be copyright infringement, not just a to-do item.
+- **KJV 1611** (the true original 1611 spelling/typesetting, not the 1769
+  Oxford revision everyone actually calls "the KJV" — including the KJV
+  already in this project) exists on Wikisource, but only as scanned
+  page images / wiki markup, not clean structured verse-by-verse data. It
+  would need real parsing work against a messier source, not just a
+  straight text pull like the other three.
+- **KJV (MCGI Modified)** is presumably an internal MCGI edit and isn't
+  publicly available anywhere to source from.
+
+To add a version with real text, find a public-domain (or properly
+licensed) source, shape it into the same
 `{ "BookName": [ [verse1, verse2, ...chapter1], [...chapter2], ... ] }`
 format as the existing JSON files, drop it in `server/seed/`, add an entry
 to the `VERSIONS` array in `server/seed/seed.js`, and re-run `npm run seed`.
