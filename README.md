@@ -10,6 +10,23 @@ This is a genuine local web server, not a file you double-click. You'll
 need [Node.js](https://nodejs.org) 18 or newer installed, and you'll run it
 from a terminal.
 
+## Design system
+
+Every interactive control (buttons, inputs, dropdowns) has a **44×44px
+minimum touch target**, following Apple's Human Interface Guidelines —
+this applies on desktop too, not just mobile, since it makes everything
+easier to click accurately regardless of device. Spacing between control
+panel sections and inside dialogs is intentionally generous rather than
+cramped. The accent color (gold) is used sparingly — for the one primary
+action per screen, not decoratively.
+
+**Bug fixed during this pass:** the top bar's buttons (Make Private, Open
+Presenter Display, Copy Presenter Link, Log out) were referencing a
+`.navbtn` style that only actually applied inside `.toolbar` containers —
+since the top bar isn't a `.toolbar`, those buttons had been rendering
+completely unstyled (default browser button appearance) since the layout
+was restructured. Fixed by making `.navbtn` apply universally.
+
 ## What changed from the single-file version
 
 | | Old (single HTML file) | This version |
@@ -65,9 +82,8 @@ mcgi-digital-bible/
 │   │   ├── search.js         GET /api/search   (FTS5)
 │   │   ├── settings.js       GET/PUT /api/font-settings
 │   │   ├── auth.js            register/login/logout/me/ws-token
-│   │   ├── liveState.js       GET/POST /api/live-state (per-operator)
-│   │   ├── operators.js       GET /api/operators/online
-│   │   └── networkInfo.js     GET /api/network-info
+│   │   ├── liveState.js       GET/POST /api/live-state (per-locale)
+│   │   └── operators.js       GET /api/operators/online
 │   └── seed/
 │       ├── seed.js           populates the database
 │       ├── adb.json          Ang Dating Biblia full text (public domain)
@@ -176,6 +192,25 @@ over WebSocket: whenever that operator navigates to a new verse, every
 viewer watching them updates instantly, with a smooth cross-fade instead of
 a hard cut.
 
+The presenter shows **only** reference, version name, and verse text — no
+cross-reference footer. (Cross-references still show in the control
+panel's own "Now Showing" preview, since that's useful for the operator to
+see while running a service — it's just not part of what the audience
+sees.)
+
+**The viewer's background is independent of the operator's choice.**
+An operator might use Chroma or Black on their own end for a stream
+composite, but a plain viewer opening the link on their phone always gets
+the Default theme regardless — only Default is viewer-selectable for now.
+This is stored via `localStorage` (`mcgi-viewer-bg`) so more viewer-facing
+theme options can be added later without restructuring anything.
+
+A late-joining viewer gets the current verse **immediately** on connect —
+no waiting for the operator's next navigation. If a viewer's connection
+drops (phone locks, WiFi blip), it automatically reconnects every 2
+seconds and re-syncs to whatever's currently showing, with a clear
+**Connecting… / Live / Disconnected — retrying…** status badge throughout.
+
 Opening `/present` with **no operator specified** shows a plain, searchable
 list of whoever's currently public and online (with a live viewer count
 next to each), instead of redirecting away — the search box only appears
@@ -183,21 +218,20 @@ once there are more than 5 operators online, to stay out of the way for
 small setups. Pick one and it takes you straight to their feed. The page
 title also updates dynamically to show the current reference and operator
 (useful when the presenter tab is one of many open browser tabs), and a
-small "Following: [locale]" badge sits in the top-left corner once
-connected.
+small "Following: [locale] · [operator]" badge sits in the top-left corner
+once connected.
 
 Press **F** anywhere on the presenter page to toggle fullscreen (no visible
 button — keeping the borderless page free of UI chrome — but the shortcut
 works the moment the page has focus). The control panel has the same F
 shortcut, alongside the existing arrow-key/`/`/Esc shortcuts.
 
-Works for both setups:
-- **One laptop, extended display** — click "Open Presenter Display" on the
-  control panel (this automatically includes your own locale in the
-  link), drag that new window to the projector/second monitor, press **F**
-  or click the **TOP** button to make it fullscreen.
-- **Two different devices, same WiFi** — the console page shows a LAN URL
-  under the toolbar, already including your operator locale.
+To get the presenter open on a second screen, click **"Open Presenter
+Display"** (opens it directly, pre-filled with your locale) or **"Copy
+Presenter Link"** (copies the public URL to paste anywhere — a text to a
+helper, a second device, OBS/vMix as a browser source, etc.). There's no
+LAN/local-network address shown anymore — just the one public link that
+works the same everywhere the server is reachable.
 
 ### Copy Verse
 
@@ -461,11 +495,6 @@ one for you. This only matters if you set the service up manually.)
 
 ### Other things that differ from local/LAN use
 
-- The operator page's "open this on another device" hint uses
-  `/api/network-info`, which reports **local network IPs** — meaningless
-  once deployed publicly. When deployed, just share the real
-  `https://your-app.onrender.com/present` URL directly instead of relying
-  on that hint.
 - WebSockets (`/ws`) work fine on Render's web services (this is not a
   serverless/functions deployment, so long-lived connections are fine).
 - If you add authentication later, remember `PUT /api/font-settings` is
