@@ -4,12 +4,13 @@ const liveState = require('../liveState');
 
 const router = express.Router();
 
-function buildPreview(row) {
-  const payload = liveState.getCurrentPayload(row.username);
+function buildPreview(locale) {
+  const payload = liveState.getCurrentPayload(locale);
   return {
-    locale: row.username,
-    online: liveState.isOperatorOnline(row.username),
-    viewerCount: liveState.getViewerCount(row.username),
+    locale,
+    operatorName: payload ? payload.operatorName : null,
+    online: liveState.isOperatorOnline(locale),
+    viewerCount: liveState.getViewerCount(locale),
     preview: payload ? {
       reference: `${payload.tagalogName || payload.book} ${payload.chapter}:${payload.verse}`,
       versionDisplayName: payload.versionDisplayName,
@@ -18,20 +19,28 @@ function buildPreview(row) {
   };
 }
 
-// GET /api/operators/online — PUBLIC operators whose console is currently
-// connected, each with a small live preview of what they're showing (like a
-// video thumbnail). This powers the homepage directory.
+// GET /api/operators/online — locales whose room currently has an operator
+// connected AND whose connected operator's account is public. Multiple
+// operator accounts can share a locale, so "public" here is resolved
+// against whichever specific operator is actually driving the room right
+// now (tracked in liveState), not the locale as a blanket property.
 router.get('/online', (req, res) => {
-  const usernames = liveState.listOnlineUsernames();
-  if (!usernames.length) return res.json([]);
+  const onlineLocales = liveState.listOnlineLocales();
+  if (!onlineLocales.length) return res.json([]);
 
-  const placeholders = usernames.map(() => '?').join(',');
-  const rows = db.prepare(`
-    SELECT username, display_name AS displayName FROM operators
-    WHERE username IN (${placeholders}) AND is_public = 1
-  `).all(...usernames);
+  const results = [];
+  for (const locale of onlineLocales) {
+    const payload = liveState.getCurrentPayload(locale);
+    const operatorName = payload ? payload.operatorName : null;
+    if (!operatorName) continue;
 
-  res.json(rows.map(buildPreview));
+    const row = db.prepare(
+      'SELECT is_public FROM operators WHERE locale = ? COLLATE NOCASE AND operator_name = ? COLLATE NOCASE'
+    ).get(locale, operatorName);
+    if (row && row.is_public) results.push(buildPreview(locale));
+  }
+
+  res.json(results);
 });
 
 module.exports = router;

@@ -5,35 +5,37 @@ const { touchActivity } = require('../cleanup');
 
 const router = express.Router();
 
-function usernameForSession(req) {
+function localeForSession(req) {
   if (!req.session.operatorId) return null;
-  const row = db.prepare('SELECT username FROM operators WHERE id = ?').get(req.session.operatorId);
-  return row ? row.username : null;
+  const row = db.prepare('SELECT locale FROM operators WHERE id = ?').get(req.session.operatorId);
+  return row ? row.locale : null;
 }
 
-// GET /api/live-state?operator=someusername — current reference for that
-// operator's room. Used by a viewer/presenter page that loads before its
-// WebSocket connects, or as a fallback if WS is unavailable.
+// GET /api/live-state?locale=Ugong — current reference for that locale's
+// room. Used by a viewer/presenter page that loads before its WebSocket
+// connects, or as a fallback if WS is unavailable.
 router.get('/', (req, res) => {
-  const { operator } = req.query;
-  if (!operator) return res.status(400).json({ error: 'operator is required' });
-  res.json(liveState.getCurrentPayload(operator));
+  const { locale } = req.query;
+  if (!locale) return res.status(400).json({ error: 'locale is required' });
+  res.json(liveState.getCurrentPayload(locale));
 });
 
 // POST /api/live-state — body: { version, book, chapter, verse, background, safeMargin }
-// Requires login. Updates the logged-in operator's own room and broadcasts
-// it to every viewer currently watching that operator, plus their own
-// console (other tabs) for consistency. Also saves this as their resume point.
+// Requires login. Updates the logged-in operator's locale room and
+// broadcasts it to every viewer currently watching that locale, plus every
+// operator console signed in under the same locale (multiple operators can
+// share one locale — the room is shared, not per-account). Also saves this
+// as this operator account's own resume point.
 router.post('/', (req, res) => {
-  const username = usernameForSession(req);
-  if (!username) return res.status(401).json({ error: 'Not logged in' });
+  const locale = localeForSession(req);
+  if (!locale) return res.status(401).json({ error: 'Not logged in' });
 
   const { version, book, chapter, verse, background, safeMargin } = req.body || {};
   if (!book || !chapter || !verse) {
     return res.status(400).json({ error: 'book, chapter, and verse are required' });
   }
-  const payload = liveState.setReference(username, { version, book, chapter, verse, background, safeMargin });
-  touchActivity(username);
+  const payload = liveState.setReference(locale, { version, book, chapter, verse, background, safeMargin });
+  touchActivity(req.session.operatorId);
 
   db.prepare(`
     UPDATE operators
@@ -52,12 +54,12 @@ router.post('/', (req, res) => {
 // persisted across restarts on purpose — it's a live-only safety control,
 // not something you'd want silently re-applied next time you log in.
 router.post('/blank', (req, res) => {
-  const username = usernameForSession(req);
-  if (!username) return res.status(401).json({ error: 'Not logged in' });
+  const locale = localeForSession(req);
+  if (!locale) return res.status(401).json({ error: 'Not logged in' });
 
   const { blank } = req.body || {};
-  const payload = liveState.setBlank(username, !!blank);
-  touchActivity(username);
+  const payload = liveState.setBlank(locale, !!blank);
+  touchActivity(req.session.operatorId);
   res.json(payload);
 });
 
