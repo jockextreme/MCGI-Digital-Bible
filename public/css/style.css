@@ -368,6 +368,10 @@ body{
 }
 .auth-switch a{ color:var(--navy-900); font-weight:700; margin-left:4px; cursor:pointer; text-decoration:none; }
 .auth-switch a:hover{ text-decoration:underline; }
+.auth-notice{
+  font-size:11px; color:var(--muted); text-align:center; margin:12px 0 0;
+  line-height:1.5;
+}
 
 .auth-help{
   font-size:11.5px; color:var(--muted); margin:6px 2px 0;
