@@ -12,9 +12,9 @@
   let hasPendingUpdate = false;
 
   const params = new URLSearchParams(location.search);
-  const operatorUsername = params.get('operator');
+  const locale = params.get('locale');
 
-  if (!operatorUsername) {
+  if (!locale) {
     showOperatorPicker();
     return;
   }
@@ -55,14 +55,15 @@
       listEl.innerHTML = ops.map(op => {
         const count = op.viewerCount || 0;
         const label = count === 1 ? '1 watching' : `${count} watching`;
-        return `<div class="picker-row" tabindex="0" role="button" aria-label="Follow ${escapeHtml(op.locale)}, ${label}" data-locale="${escapeHtml(op.locale)}">
-          <span class="locale">${escapeHtml(op.locale)}</span>
+        const displayLabel = op.operatorName ? `${op.locale} · ${op.operatorName}` : op.locale;
+        return `<div class="picker-row" tabindex="0" role="button" aria-label="Follow ${escapeHtml(displayLabel)}, ${label}" data-locale="${escapeHtml(op.locale)}">
+          <span class="locale">${escapeHtml(displayLabel)}</span>
           <span class="viewers">${label}</span>
         </div>`;
       }).join('');
 
       listEl.querySelectorAll('.picker-row').forEach(row => {
-        const go = () => { location.href = `/present?operator=${encodeURIComponent(row.dataset.locale)}`; };
+        const go = () => { location.href = `/present?locale=${encodeURIComponent(row.dataset.locale)}`; };
         row.addEventListener('click', go);
         row.addEventListener('keydown', e => { if (e.key === 'Enter') go(); });
       });
@@ -76,7 +77,7 @@
     });
   }
 
-  const STORAGE_KEY = `mcgi-version-mode:${operatorUsername}`;
+  const STORAGE_KEY = `mcgi-version-mode:${locale}`;
   let mode = { type: 'auto', version: null }; // type: 'auto' | 'manual'
   try {
     const saved = JSON.parse(localStorage.getItem(STORAGE_KEY) || 'null');
@@ -186,7 +187,12 @@
     fitText();
 
     const ref = `${payload.tagalogName || payload.book} ${payload.chapter}:${payload.verse}`;
-    document.title = `${ref} — ${operatorUsername} | MCGI Digital Bible`;
+    document.title = `${ref} — ${locale} | MCGI Digital Bible`;
+
+    const followBadge = el('followingBadge');
+    if (followBadge) {
+      followBadge.textContent = payload.operatorName ? `Following: ${locale} · ${payload.operatorName}` : `Following: ${locale}`;
+    }
   }
 
   function renderPayload(payload) {
@@ -235,12 +241,12 @@
 
   function connect() {
     const proto = location.protocol === 'https:' ? 'wss:' : 'ws:';
-    const ws = new WebSocket(`${proto}//${location.host}/ws?role=viewer&operator=${encodeURIComponent(operatorUsername)}`);
+    const ws = new WebSocket(`${proto}//${location.host}/ws?role=viewer&locale=${encodeURIComponent(locale)}`);
 
     ws.addEventListener('open', () => {
       el('connBadge').classList.add('connected');
       const badge = el('followingBadge');
-      badge.textContent = `Following: ${operatorUsername}`;
+      badge.textContent = `Following: ${locale}`;
       badge.style.display = '';
     });
     ws.addEventListener('close', () => {

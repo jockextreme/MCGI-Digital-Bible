@@ -8,7 +8,7 @@
     autoResize: true,
     fontStep: 2,           // 1 small, 2 medium, 3 large — manual mode only
     fontTable: [],         // [{rangeIndex, minLength, maxLength, fontSize}]
-    operator: null,        // { id, locale, isPublic, lastVersion, lastBook, lastChapter, lastVerse, lastBackground, lastSafeMargin }
+    operator: null,        // { id, locale, operatorName, label, isPublic, lastVersion, lastBook, lastChapter, lastVerse, lastBackground, lastSafeMargin }
     authMode: 'login',     // 'login' | 'register'
     history: [],           // recently shown references, most recent last
     previewMode: { type: 'auto', version: null }, // local-only, doesn't affect the broadcast
@@ -55,10 +55,10 @@
 
   function setAuthMode(mode) {
     state.authMode = mode;
-    el('authTitle').textContent = mode === 'login' ? 'Operator Sign In' : 'Register a Locale';
+    el('authTitle').textContent = mode === 'login' ? 'Operator Sign In' : 'Register as Operator';
     el('authSubmit').textContent = mode === 'login' ? 'Sign In' : 'Register';
     el('authVisibilityField').style.display = mode === 'register' ? '' : 'none';
-    el('authSwitchText').textContent = mode === 'login' ? 'No locale registered yet?' : 'Already have one?';
+    el('authSwitchText').textContent = mode === 'login' ? 'No operator account yet?' : 'Already have one?';
     el('authSwitchLink').textContent = mode === 'login' ? 'Register one' : 'Sign in instead';
     el('authError').textContent = '';
     el('authLocaleStatus').textContent = '';
@@ -72,7 +72,7 @@
       setAuthMode(state.authMode === 'login' ? 'register' : 'login');
     });
     el('authSubmit').addEventListener('click', submitAuthForm);
-    [el('authLocale'), el('authPassword')].forEach(input => {
+    [el('authLocale'), el('authOperatorName'), el('authPassword')].forEach(input => {
       input.addEventListener('keydown', e => { if (e.key === 'Enter') submitAuthForm(); });
     });
 
@@ -85,27 +85,29 @@
       btn.setAttribute('aria-label', showing ? 'Show password' : 'Hide password');
     });
 
-    el('authLocale').addEventListener('input', debounce(checkLocaleAvailability, 350));
+    el('authLocale').addEventListener('input', debounce(checkOperatorAvailability, 350));
+    el('authOperatorName').addEventListener('input', debounce(checkOperatorAvailability, 350));
   }
 
-  async function checkLocaleAvailability() {
+  async function checkOperatorAvailability() {
     const statusEl = el('authLocaleStatus');
     if (state.authMode !== 'register') { statusEl.textContent = ''; return; }
     const locale = el('authLocale').value.trim();
-    if (locale.length < 2) { statusEl.textContent = ''; statusEl.className = 'auth-help'; return; }
+    const operatorName = el('authOperatorName').value.trim();
+    if (locale.length < 2 || operatorName.length < 2) { statusEl.textContent = ''; statusEl.className = 'auth-help'; return; }
 
     statusEl.textContent = 'Checking…';
     statusEl.className = 'auth-help status-checking';
     try {
-      const data = await api('/auth/check-locale?locale=' + encodeURIComponent(locale));
+      const data = await api(`/auth/check-operator?locale=${encodeURIComponent(locale)}&operatorName=${encodeURIComponent(operatorName)}`);
       if (!data.valid) {
         statusEl.textContent = '2-40 characters — letters, numbers, spaces, hyphens.';
         statusEl.className = 'auth-help status-taken';
       } else if (data.available) {
-        statusEl.textContent = `"${locale}" is available.`;
+        statusEl.textContent = `"${operatorName}" is available under "${locale}".`;
         statusEl.className = 'auth-help status-available';
       } else {
-        statusEl.textContent = `"${locale}" is already taken — try another.`;
+        statusEl.textContent = `"${operatorName}" is already registered under "${locale}" — try a different name.`;
         statusEl.className = 'auth-help status-taken';
       }
     } catch (err) {
@@ -115,6 +117,7 @@
 
   async function submitAuthForm() {
     const locale = el('authLocale').value.trim();
+    const operatorName = el('authOperatorName').value.trim();
     const password = el('authPassword').value;
     const isPublic = (document.querySelector('input[name="authVisibility"]:checked') || {}).value !== 'private';
     const errorEl = el('authError');
@@ -122,8 +125,8 @@
 
     const path = state.authMode === 'login' ? '/auth/login' : '/auth/register';
     const body = state.authMode === 'login'
-      ? { locale, password }
-      : { locale, password, isPublic };
+      ? { locale, operatorName, password }
+      : { locale, operatorName, password, isPublic };
 
     try {
       const res = await fetch('/api' + path, {
@@ -145,7 +148,7 @@
   }
 
   function updateAccountBadge() {
-    el('accountBadge').textContent = `${state.operator.locale} · ${state.operator.isPublic ? 'Public' : 'Private'}`;
+    el('accountBadge').textContent = `${state.operator.label} · ${state.operator.isPublic ? 'Public' : 'Private'}`;
     el('toggleVisibilityBtn').textContent = state.operator.isPublic ? 'Make Private' : 'Make Public';
   }
 
@@ -158,7 +161,7 @@
       });
       state.operator = updated;
       updateAccountBadge();
-      showToast(state.operator.isPublic ? 'Now listed on the homepage.' : 'Now private — direct link only.');
+      showToast(state.operator.isPublic ? 'Now listed on the presenter picker.' : 'Now private — direct link only.');
     } catch (err) {
       showToast('Could not update visibility.');
     }
@@ -265,10 +268,12 @@
     el('toggleVisibilityBtn').addEventListener('click', toggleVisibility);
 
     el('openPresenterBtn').addEventListener('click', () => {
-      window.open(`/present?operator=${encodeURIComponent(state.operator.locale)}`, 'mcgi-presenter', 'noopener');
+      window.open(`/present?locale=${encodeURIComponent(state.operator.locale)}`, 'mcgi-presenter', 'noopener');
     });
+    el('copyLinkBtn').addEventListener('click', copyPresenterLink);
     loadNetworkInfo();
     connectPresenceSocket();
+    startHeartbeat();
 
     el('fsCloseX').addEventListener('click', closeFontSettings);
     el('fsCancel').addEventListener('click', closeFontSettings);
@@ -355,7 +360,7 @@
   }
 
   // Keeps a lightweight WebSocket open purely so this operator shows up as
-  // "online" on the homepage, and to receive live viewer-count updates.
+  // "online" on the presenter picker, and to receive live viewer-count updates.
   function connectPresenceSocket() {
     updateConnStatus('connecting');
     api('/auth/ws-token').then(({ token }) => {
@@ -559,6 +564,36 @@
     } catch (err) {
       showToast('Could not update blank screen — is the server running?');
     }
+  }
+
+  // ---------- Copy Presenter Link ----------
+  async function copyPresenterLink() {
+    const link = `${location.origin}/present?locale=${encodeURIComponent(state.operator.locale)}`;
+    try {
+      await navigator.clipboard.writeText(link);
+      showToast('Presenter link copied.');
+    } catch (err) {
+      const textarea = document.createElement('textarea');
+      textarea.value = link;
+      textarea.style.position = 'fixed';
+      textarea.style.opacity = '0';
+      document.body.appendChild(textarea);
+      textarea.select();
+      try {
+        document.execCommand('copy');
+        showToast('Presenter link copied.');
+      } catch (err2) {
+        showToast('Could not copy — try selecting the link manually.');
+      }
+      textarea.remove();
+    }
+  }
+
+  // ---------- Heartbeat (keeps this 1-hour temporary account alive while the panel is open) ----------
+  function startHeartbeat() {
+    setInterval(() => {
+      api('/auth/heartbeat', { method: 'POST' }).catch(() => { /* next tick will retry */ });
+    }, 2 * 60 * 1000);
   }
 
   // ---------- Copy Verse ----------
@@ -792,7 +827,7 @@
     try {
       const info = await api('/network-info');
       const hint = el('presenterHint');
-      const opParam = `?operator=${encodeURIComponent(state.operator.locale)}`;
+      const opParam = `?locale=${encodeURIComponent(state.operator.locale)}`;
       if (info.addresses && info.addresses.length) {
         const url = `http://${info.addresses[0]}:${info.port}/present${opParam}`;
         hint.innerHTML = `On another device (same WiFi): <code>${url}</code>`;
