@@ -153,7 +153,6 @@
       el('stageRef').textContent = '';
       el('stageVersion').textContent = '';
       el('stageText').textContent = '';
-      el('crossrefs').innerHTML = '';
       document.title = 'MCGI Digital Bible';
       return;
     }
@@ -167,22 +166,16 @@
           ? `${payload.tagalogName || payload.book} ${payload.chapter}:${payload.verse} is out of range.`
           : `No text loaded for this version yet.`);
 
-    applyBackgroundTheme(el('card'), payload.background || 'default');
+    // Viewer background is independent of whatever the operator has set for
+    // their own broadcast (they may be using Chroma/Black for a production
+    // overlay) — a plain viewer always gets the Default theme. Only one
+    // option exists for viewers right now, but the localStorage read/write
+    // is here so more viewer-selectable themes can slot in later without
+    // restructuring this.
+    const viewerTheme = localStorage.getItem('mcgi-viewer-bg') || 'default';
+    applyBackgroundTheme(el('card'), viewerTheme);
     lastSafeMargin = payload.safeMargin || 0;
     applySafeMargin(document.querySelector('.card-inner'), lastSafeMargin, el('card').clientWidth);
-
-    const crEl = el('crossrefs');
-    crEl.innerHTML = '';
-    if (payload.crossrefs && payload.crossrefs.length) {
-      crEl.classList.remove('empty');
-      payload.crossrefs.forEach(label => {
-        const a = document.createElement('a');
-        a.textContent = label;
-        crEl.appendChild(a);
-      });
-    } else {
-      crEl.classList.add('empty');
-    }
 
     fitText();
 
@@ -233,7 +226,7 @@
       const { book, chapter, verse } = lastReference;
       const res = await fetch(`/api/verses?version=${encodeURIComponent(mode.version)}&book=${encodeURIComponent(book)}&chapter=${chapter}&verse=${verse}`);
       const data = await res.json();
-      renderPayload({ ...data, background: opPayload.background, safeMargin: opPayload.safeMargin });
+      renderPayload({ ...data, safeMargin: opPayload.safeMargin });
     } catch (err) {
       console.error('Could not load verse in manual version', err);
     }
@@ -241,10 +234,13 @@
 
   function connect() {
     const proto = location.protocol === 'https:' ? 'wss:' : 'ws:';
+    el('connBadge').classList.remove('connected');
+    el('connBadge').textContent = 'Connecting…';
     const ws = new WebSocket(`${proto}//${location.host}/ws?role=viewer&locale=${encodeURIComponent(locale)}`);
 
     ws.addEventListener('open', () => {
       el('connBadge').classList.add('connected');
+      el('connBadge').textContent = 'Live';
       const badge = el('followingBadge');
       badge.textContent = `Following: ${locale}`;
       badge.style.display = '';

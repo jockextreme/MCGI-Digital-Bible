@@ -271,7 +271,6 @@
       window.open(`/present?locale=${encodeURIComponent(state.operator.locale)}`, 'mcgi-presenter', 'noopener');
     });
     el('copyLinkBtn').addEventListener('click', copyPresenterLink);
-    loadNetworkInfo();
     connectPresenceSocket();
     startHeartbeat();
 
@@ -821,22 +820,6 @@
         closeSearch();
       });
     });
-  }
-
-  async function loadNetworkInfo() {
-    try {
-      const info = await api('/network-info');
-      const hint = el('presenterHint');
-      const opParam = `?locale=${encodeURIComponent(state.operator.locale)}`;
-      if (info.addresses && info.addresses.length) {
-        const url = `http://${info.addresses[0]}:${info.port}/present${opParam}`;
-        hint.innerHTML = `On another device (same WiFi): <code>${url}</code>`;
-      } else {
-        hint.textContent = 'On this computer: use the button above, or open /present in a second window.';
-      }
-    } catch (err) {
-      console.error('Could not load network info', err);
-    }
   }
 
   // ---------- History (H button) ----------
