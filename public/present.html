@@ -19,7 +19,7 @@
     border:1px solid rgba(224,168,60,0.3);
     transition:opacity .18s cubic-bezier(.4,0,.2,1);
   }
-  .conn-badge.connected{ opacity:0; pointer-events:none; }
+  .conn-badge.connected{ opacity:0.55; }
   .version-mode{
     position:fixed; bottom:16px; left:20px; z-index:10;
   }
@@ -72,7 +72,8 @@
   }
   .picker-row{
     display:flex; align-items:center; justify-content:space-between; gap:12px;
-    padding:12px 18px; border-radius:12px; cursor:pointer; text-align:left;
+    min-height:44px; box-sizing:border-box;
+    padding:14px 18px; border-radius:12px; cursor:pointer; text-align:left;
     background:transparent; transition:background .15s ease;
   }
   .picker-row:hover, .picker-row.selected{ background:rgba(255,255,255,0.07); }
@@ -129,7 +130,6 @@
         <div class="verse-body">
           <p id="stageText">Open the control panel on another window/device and pick a verse.</p>
         </div>
-        <div class="crossrefs" id="crossrefs"></div>
       </div>
     </div>
   </div>
