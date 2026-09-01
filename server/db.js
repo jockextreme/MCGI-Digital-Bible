@@ -62,8 +62,8 @@ function initSchema() {
 
     CREATE TABLE IF NOT EXISTS operators (
       id INTEGER PRIMARY KEY AUTOINCREMENT,
-      username TEXT NOT NULL UNIQUE,
-      display_name TEXT NOT NULL,
+      locale TEXT NOT NULL,
+      operator_name TEXT NOT NULL,
       password_hash TEXT NOT NULL,
       password_salt TEXT NOT NULL,
       is_public INTEGER NOT NULL DEFAULT 1,
@@ -74,25 +74,40 @@ function initSchema() {
       last_verse INTEGER,
       last_background TEXT NOT NULL DEFAULT 'default',
       last_safe_margin INTEGER NOT NULL DEFAULT 0,
-      created_at TEXT NOT NULL DEFAULT (datetime('now'))
+      created_at TEXT NOT NULL DEFAULT (datetime('now')),
+      UNIQUE(locale COLLATE NOCASE, operator_name COLLATE NOCASE)
     );
+    CREATE INDEX IF NOT EXISTS idx_operators_locale ON operators(locale COLLATE NOCASE);
   `);
 
+  // One-time migration: if an old single-identity "operators" table exists
+  // (from before locale/operator were split), rebuild it. This intentionally
+  // does not try to preserve old accounts — the identity model changed
+  // shape entirely (single username -> locale + operator name pair), so
+  // there's no sensible 1:1 mapping. Temporary accounts anyway (1hr TTL).
   const opCols = db.prepare(`PRAGMA table_info(operators)`).all().map(c => c.name);
-  if (!opCols.includes('last_background')) {
-    db.exec(`ALTER TABLE operators ADD COLUMN last_background TEXT NOT NULL DEFAULT 'default'`);
-  }
-  if (!opCols.includes('last_safe_margin')) {
-    db.exec(`ALTER TABLE operators ADD COLUMN last_safe_margin INTEGER NOT NULL DEFAULT 0`);
-  }
-
-  // Lightweight migration for databases created before is_public/last_active_at existed.
-  const cols = db.prepare(`PRAGMA table_info(operators)`).all().map(c => c.name);
-  if (!cols.includes('is_public')) {
-    db.exec(`ALTER TABLE operators ADD COLUMN is_public INTEGER NOT NULL DEFAULT 1`);
-  }
-  if (!cols.includes('last_active_at')) {
-    db.exec(`ALTER TABLE operators ADD COLUMN last_active_at TEXT NOT NULL DEFAULT (datetime('now'))`);
+  if (opCols.includes('username') && !opCols.includes('operator_name')) {
+    db.exec(`DROP TABLE operators;`);
+    db.exec(`
+      CREATE TABLE operators (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        locale TEXT NOT NULL,
+        operator_name TEXT NOT NULL,
+        password_hash TEXT NOT NULL,
+        password_salt TEXT NOT NULL,
+        is_public INTEGER NOT NULL DEFAULT 1,
+        last_active_at TEXT NOT NULL DEFAULT (datetime('now')),
+        last_version TEXT,
+        last_book TEXT,
+        last_chapter INTEGER,
+        last_verse INTEGER,
+        last_background TEXT NOT NULL DEFAULT 'default',
+        last_safe_margin INTEGER NOT NULL DEFAULT 0,
+        created_at TEXT NOT NULL DEFAULT (datetime('now')),
+        UNIQUE(locale COLLATE NOCASE, operator_name COLLATE NOCASE)
+      );
+      CREATE INDEX idx_operators_locale ON operators(locale COLLATE NOCASE);
+    `);
   }
 }
 

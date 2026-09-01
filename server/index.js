@@ -68,9 +68,9 @@ const server = http.createServer(app);
 
 // WebSocket: role-based connection.
 //   /ws?role=operator&token=<one-time token from /api/auth/ws-token>
-//     — the operator's own console, mainly for online-presence tracking.
-//   /ws?role=viewer&operator=<username>
-//     — a presenter/viewer window watching one specific operator's room.
+//     — the operator's own console, registers into their locale's room.
+//   /ws?role=viewer&locale=<locale>
+//     — a presenter/viewer window watching one locale's room.
 const wss = new WebSocketServer({ server, path: '/ws' });
 
 wss.on('connection', (ws, req) => {
@@ -82,22 +82,22 @@ wss.on('connection', (ws, req) => {
       ws.close(4001, 'Invalid or expired token');
       return;
     }
-    const row = db.prepare('SELECT username FROM operators WHERE id = ?').get(operatorId);
+    const row = db.prepare('SELECT locale, operator_name FROM operators WHERE id = ?').get(operatorId);
     if (!row) {
       ws.close(4001, 'Unknown operator');
       return;
     }
-    liveState.registerOperatorSocket(row.username, ws);
+    liveState.registerOperatorSocket(row.locale, row.operator_name, ws);
     return;
   }
 
   if (query.role === 'viewer') {
-    const username = query.operator;
-    if (!username) {
-      ws.close(4002, 'No operator specified');
+    const locale = query.locale;
+    if (!locale) {
+      ws.close(4002, 'No locale specified');
       return;
     }
-    liveState.registerViewerSocket(username, ws);
+    liveState.registerViewerSocket(locale, ws);
     return;
   }
 

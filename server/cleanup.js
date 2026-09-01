@@ -1,30 +1,37 @@
 const db = require('./db');
 
-// How long an account can sit untouched before it's deleted. Configurable
-// via env var since "inactive" means different things for different
-// congregations; 90 days is a reasonable default for a free/open-signup app.
-const INACTIVITY_DELETE_DAYS = parseInt(process.env.INACTIVITY_DELETE_DAYS, 10) || 90;
+// Operator accounts are temporary by design — they exist for the duration
+// of a service, not as permanent logins. Configurable via env var, but the
+// spec calls for 1 hour of inactivity by default. The Control Panel sends a
+// periodic heartbeat (POST /api/auth/heartbeat) while it's open, so an
+// operator who's just sitting on the page mid-service doesn't get swept.
+const INACTIVITY_DELETE_MINUTES = parseInt(process.env.INACTIVITY_DELETE_MINUTES, 10) || 60;
+
+// Runs every 5 minutes rather than once a day — with only a 1-hour TTL,
+// a daily sweep would leave expired accounts lingering for most of the day.
+const CLEANUP_INTERVAL_MS = 5 * 60 * 1000;
 
 function runCleanup() {
   const result = db.prepare(`
     DELETE FROM operators
-    WHERE last_active_at < datetime('now', '-' || ? || ' days')
-  `).run(INACTIVITY_DELETE_DAYS);
+    WHERE last_active_at < datetime('now', '-' || ? || ' minutes')
+  `).run(INACTIVITY_DELETE_MINUTES);
 
   if (result.changes > 0) {
-    console.log(`[cleanup] Removed ${result.changes} operator account(s) inactive for ${INACTIVITY_DELETE_DAYS}+ days.`);
+    console.log(`[cleanup] Removed ${result.changes} operator account(s) inactive for ${INACTIVITY_DELETE_MINUTES}+ minutes.`);
   }
   return result.changes;
 }
 
-function touchActivity(username) {
-  db.prepare(`UPDATE operators SET last_active_at = datetime('now') WHERE username = ?`).run(username);
+// Accepts an operator's numeric id (their locale/operator-name identity is
+// mutable in principle — the id is the stable key to update by).
+function touchActivity(operatorId) {
+  db.prepare(`UPDATE operators SET last_active_at = datetime('now') WHERE id = ?`).run(operatorId);
 }
 
 function startCleanupSchedule() {
   runCleanup(); // once on boot
-  const DAY_MS = 24 * 60 * 60 * 1000;
-  setInterval(runCleanup, DAY_MS);
+  setInterval(runCleanup, CLEANUP_INTERVAL_MS);
 }
 
-module.exports = { runCleanup, touchActivity, startCleanupSchedule, INACTIVITY_DELETE_DAYS };
+module.exports = { runCleanup, touchActivity, startCleanupSchedule, INACTIVITY_DELETE_MINUTES };
