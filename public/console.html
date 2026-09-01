@@ -66,9 +66,14 @@
       </div>
       <div class="fs-body">
         <div class="auth-field">
-          <label id="authLocaleLabel">What is your locale?</label>
-          <input type="text" id="authLocale" placeholder="e.g. Ugong" autocomplete="username" />
+          <label id="authLocaleLabel">Locale</label>
+          <input type="text" id="authLocale" placeholder="e.g. Ugong" autocomplete="off" />
           <p class="auth-help" id="authLocaleStatus"></p>
+        </div>
+
+        <div class="auth-field">
+          <label>Operator name</label>
+          <input type="text" id="authOperatorName" placeholder="e.g. Bro. Juan" autocomplete="off" />
         </div>
 
         <div class="auth-field" id="authVisibilityField" style="display:none;">
@@ -76,7 +81,7 @@
           <div class="auth-visibility">
             <label class="auth-radio">
               <input type="radio" name="authVisibility" value="public" checked />
-              <span><strong>Public</strong> — listed on the homepage for anyone to find</span>
+              <span><strong>Public</strong> — listed on the presenter picker for anyone to find</span>
             </label>
             <label class="auth-radio">
               <input type="radio" name="authVisibility" value="private" />
@@ -99,9 +104,10 @@
           <button class="fs-btn" id="authSubmit">Sign In</button>
         </div>
         <div class="auth-switch">
-          <span id="authSwitchText">No locale registered yet?</span>
+          <span id="authSwitchText">No operator account yet?</span>
           <a href="#" id="authSwitchLink">Register one</a>
         </div>
+        <p class="auth-notice">Operator accounts are temporary and are removed after an hour of inactivity — not a permanent login.</p>
       </div>
     </div>
   </div>
@@ -115,6 +121,7 @@
       <span class="viewer-count-badge" id="viewerCountBadge">0 watching</span>
       <button class="navbtn" id="toggleVisibilityBtn">Make Private</button>
       <button class="navbtn" id="openPresenterBtn">Open Presenter Display ↗</button>
+      <button class="navbtn" id="copyLinkBtn">Copy Presenter Link</button>
       <span class="presenter-hint" id="presenterHint"></span>
       <div class="spacer"></div>
       <span class="shortcuts-hint">← → navigate · / search · F fullscreen · B blank · Esc close</span>
