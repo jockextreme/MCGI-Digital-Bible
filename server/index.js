@@ -11,7 +11,6 @@ const versesRouter = require('./routes/verses');
 const searchRouter = require('./routes/search');
 const settingsRouter = require('./routes/settings');
 const liveStateRouter = require('./routes/liveState');
-const networkInfoRouter = require('./routes/networkInfo');
 const authRouter = require('./routes/auth');
 const operatorsRouter = require('./routes/operators');
 
@@ -44,7 +43,6 @@ app.use('/api/verses', versesRouter);
 app.use('/api/search', searchRouter);
 app.use('/api/font-settings', settingsRouter);
 app.use('/api/live-state', liveStateRouter);
-app.use('/api/network-info', networkInfoRouter);
 app.use('/api/operators', operatorsRouter);
 
 app.get('/api/health', (req, res) => res.json({ ok: true }));
