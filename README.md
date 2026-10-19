@@ -51,8 +51,8 @@ npm start          # starts the server
 ```
 
 Then open **http://localhost:3000** for the landing page (choose Operator or
-Viewer), or go straight to **http://localhost:3000/control** to sign
-in/register and run a service yourself.
+Viewer), or go straight to **http://localhost:3000/control** — type in a
+locale and operator name and you're in, no account or password needed.
 
 `npm run seed` is safe to re-run any time — it rebuilds the relevant tables
 from scratch (useful if you add more translations later).
@@ -70,8 +70,7 @@ mcgi-digital-bible/
 ├── server/
 │   ├── index.js              Express app entrypoint + WebSocket routing
 │   ├── db.js                 SQLite connection + schema
-│   ├── auth.js                password hashing (Node's built-in crypto.scrypt)
-│   ├── cleanup.js              inactivity auto-deletion job (90-day default)
+│   ├── cleanup.js              inactivity auto-deletion job (1hr default)
 │   ├── liveState.js           per-operator "room" state + WebSocket broadcast
 │   ├── wsTokens.js            short-lived tokens for authenticating operator WS connections
 │   ├── verseLookup.js         shared verse-fetching logic
@@ -80,18 +79,20 @@ mcgi-digital-bible/
 │   │   ├── versions.js       GET /api/versions
 │   │   ├── verses.js         GET /api/verses, /api/verses/chapter-meta
 │   │   ├── search.js         GET /api/search   (FTS5)
-│   │   ├── settings.js       GET/PUT /api/font-settings
-│   │   ├── auth.js            register/login/logout/me/ws-token
+│   │   ├── settings.js       GET/PUT /api/font-settings (PUT requires an active room)
+│   │   ├── auth.js            start/logout/me/visibility/heartbeat/ws-token — no password
 │   │   ├── liveState.js       GET/POST /api/live-state (per-locale)
-│   │   └── operators.js       GET /api/operators/online
+│   │   ├── operators.js       GET /api/operators/online
+│   │   └── suggestions.js     POST /api/suggestions (public), GET gated by ADMIN_KEY
 │   └── seed/
 │       ├── seed.js           populates the database
 │       ├── adb.json          Ang Dating Biblia full text (public domain)
 │       └── kjv.json          King James Version full text (public domain)
 ├── public/                   the frontend (served statically by Express)
-│   ├── index.html                      Landing page — choose Operator or Viewer
-│   ├── console.html / js/app.js        Control Panel (login-gated, at /control)
+│   ├── index.html                      Landing page — choose Operator or Viewer, has the suggestion box
+│   ├── console.html / js/app.js        Control Panel (no login — enter a locale + name, at /control)
 │   ├── present.html / js/present.js    Presenter/viewer display (at /present), borderless
+│   ├── admin-suggestions.html          Unlinked, ADMIN_KEY-gated view of submitted suggestions
 │   ├── js/themes.js                    Background themes + Safe Margin (shared by both)
 │   ├── css/style.css
 │   └── img/                            drop logo.png / background.jpg here
@@ -99,7 +100,7 @@ mcgi-digital-bible/
     └── bible.db              created by `npm run seed` (gitignored)
 ```
 
-## Landing page, operator accounts & multiple simultaneous operators
+## Landing page, no-login operator rooms & multiple simultaneous operators
 
 **The homepage (`/`) is a full landing page** — hero, "What this is," "Why
 it was made," "Who it is for," "About the original," "How to use," and two
@@ -109,13 +110,15 @@ entry points: "I Am an Operator" (→ `/control`) and "I Am a Viewer" (→
 pick from a searchable list of whoever's currently online.
 
 **The control panel lives at `/control`** (the old `/console` URL still
-works — it just redirects there). That's where you register/log in and
-actually run a service. Open signup, no admin approval, no email
-verification — meant for your own team/congregations, not gated.
+works — it just redirects there). **There is no login or password.** Type
+in a locale and operator name and you're straight into the console — no
+account to create, nothing to remember, meant to stay out of the way for
+a team that might be large and that's running up to the service, not a
+gated signup flow.
 
 ### Locale + Operator identity
 
-Accounts have **two separate fields**, not one:
+A room is identified by **two separate fields**, not one:
 - **Locale** — a place name like "Ugong" or "San Juan," identifying the
   congregation/service.
 - **Operator name** — the person running it, like "Bro. Juan."
@@ -133,39 +136,51 @@ is closed). This matches "prefer one active broadcaster per locale" — the
 UI doesn't prevent multiple people signing in under one locale, but only
 one can actually be driving the display at a time.
 
-At registration you also choose:
+When entering, you also choose:
 - **Public** — shown in the picker on `/present` (only while that specific
-  operator account is the one actively connected for their locale).
+  locale+name pair is the one actively connected).
 - **Private** — not listed anywhere; only reachable if someone has your
   direct `/present?locale=<locale>` link. Toggle this anytime from the
-  control panel (top bar, next to your account badge).
+  control panel (top bar, next to your room badge).
 
-What accounts buy you:
+Because there's no password, typing in a locale+name pair that already
+exists simply **re-enters that same room** — same resume point, same
+visibility setting — rather than creating a duplicate or asking for
+credentials. This is the same "whoever connects most recently is the
+active broadcaster" model the rest of the app already uses, just applied
+to entering a room at all, not only to who's driving it.
+
+What a room buys you:
 - **Each locale has its own independent broadcast room.** Two locales can
   run two completely separate services at the same time without
   interfering with each other.
 - **Resume where you left off.** Your last book/chapter/verse/version is
   saved automatically every time you navigate, and restored the next time
-  *that specific operator account* logs in (resume points are per-account,
-  even though the room itself is shared per-locale).
+  that same locale+name pair is entered (resume points are per-room, even
+  though the room itself is shared by anyone who types that locale+name).
 - **Copy Presenter Link** — a button next to "Open Presenter Display"
   copies the shareable `/present?locale=<locale>` URL straight to the
   clipboard.
 
-Passwords are hashed with Node's built-in `crypto.scrypt` (no extra
-dependency). Sessions use `express-session` with its default in-memory
-store — fine for a small team on one server process, but sessions won't
-survive a server restart, and it isn't meant for large-scale public
-deployments. If this ever needs to scale beyond a handful of operators or
-run across multiple server instances, swap in a real session store (e.g.
+Sessions use `express-session` with its default in-memory store — fine
+for a small team on one server process, but sessions won't survive a
+server restart, and it isn't meant for large-scale public deployments. If
+this ever needs to scale beyond a handful of operators or run across
+multiple server instances, swap in a real session store (e.g.
 `connect-sqlite3` or Redis).
 
-### Temporary accounts — 1 hour
+Editing the shared Font Setting table (`PUT /api/font-settings`) still
+requires an active room session (anyone who has entered a locale+name),
+since it's shared across every room — but there's no password behind
+that either, it's just checking that *someone* is in a room, not *which*
+one.
 
-Operator accounts are **intentionally temporary**, not permanent logins.
-An account is deleted after **60 minutes of inactivity** — a cleanup job
-runs once on server boot and then every 5 minutes (`server/cleanup.js`).
-"Inactivity" means no login, no live-state update, and no heartbeat.
+### Temporary rooms — 1 hour
+
+Rooms are **intentionally temporary**, not permanent accounts. A room is
+deleted after **60 minutes of inactivity** — a cleanup job runs once on
+server boot and then every 5 minutes (`server/cleanup.js`). "Inactivity"
+means no entry, no live-state update, and no heartbeat.
 
 The control panel sends a lightweight heartbeat
 (`POST /api/auth/heartbeat`) every 2 minutes while it's open, specifically
@@ -174,12 +189,13 @@ clicking Next/Prev the whole time — doesn't get swept mid-broadcast.
 Adjust the threshold with the `INACTIVITY_DELETE_MINUTES` environment
 variable.
 
-**Breaking change note:** this replaced an earlier single-field "locale =
-account identity" model. If you're upgrading an existing deployment, the
-old `operators` table is dropped and recreated on first boot — any
+**Breaking change note:** this removed the password/login requirement
+entirely — entering a locale + operator name is now enough on its own. If
+you're upgrading an existing deployment, the old `operators` table (which
+had password columns) is dropped and recreated on first boot — any
 existing accounts are wiped. Given the 1-hour temporary nature of these
-accounts, that's an acceptable one-time reset, not data loss of anything
-meant to persist.
+rooms, that's an acceptable one-time reset, not data loss of anything
+meant to persist. A new `suggestions` table is also added automatically.
 
 ## Presenter/Audience split view
 
@@ -367,19 +383,20 @@ start feeling like a border again.
 - `GET /api/verses/chapter-meta?version=ADB&book=Genesis&chapter=1` — just the verse count for a chapter (used for Previous/Next rollover).
 - `GET /api/search?version=ADB&q=pag-ibig` — full-text search, ranked, capped at 60 results.
 - `GET /api/font-settings` — the 14-row content-length → font-size table.
-- `PUT /api/font-settings` — body `[{ rangeIndex, fontSize }, ...]`, persists edits.
-- `POST /api/auth/register` — body `{ locale, operatorName, password, isPublic }`, logs you in immediately.
-- `POST /api/auth/login` — body `{ locale, operatorName, password }` (both fields matched case-insensitively).
+- `PUT /api/font-settings` — (requires an active room session) body `[{ rangeIndex, fontSize }, ...]`, persists edits.
+- `POST /api/auth/start` — body `{ locale, operatorName, isPublic }` (no password) — creates the room if it's new, or re-enters it if it already exists; logs you in immediately either way.
 - `POST /api/auth/logout`
-- `GET /api/auth/me` — current session's operator, or `null`.
-- `POST /api/auth/heartbeat` — (requires login) refreshes `last_active_at` so the 1-hour inactivity cleanup doesn't sweep an open-but-idle session.
-- `GET /api/auth/check-operator?locale=Ugong&operatorName=Bro.%20Juan` — real-time availability check for a locale+operator-name pair.
+- `GET /api/auth/me` — current session's room, or `null`.
+- `POST /api/auth/heartbeat` — (requires an active room) refreshes `last_active_at` so the 1-hour inactivity cleanup doesn't sweep an open-but-idle session.
+- `GET /api/auth/check-operator?locale=Ugong&operatorName=Bro.%20Juan` — informational check for whether a locale+operator-name pair is already an active room (not a blocker, since re-entering it is allowed).
 - `PUT /api/auth/visibility` — body `{ isPublic }`, toggle public/private anytime.
 - `GET /api/auth/ws-token` — one-time token for the operator's authenticated WebSocket connection.
 - `GET /api/operators/online` — locales with an active, **public** operator connected, each with a live preview (reference, version, text snippet) and the connected operator's name. Powers the `/present` picker.
 - `GET /api/live-state?locale=<locale>` — that locale's current reference.
-- `POST /api/live-state` — (requires login) body `{ version, book, chapter, verse, background, safeMargin }`; updates and broadcasts the logged-in operator's locale room, and saves the resume point to their own account.
-- `POST /api/live-state/blank` — (requires login) body `{ blank: true|false }`; emergency blank screen for the operator's locale room.
+- `POST /api/live-state` — (requires an active room) body `{ version, book, chapter, verse, background, safeMargin }`; updates and broadcasts the current room, and saves the resume point to it.
+- `POST /api/live-state/blank` — (requires an active room) body `{ blank: true|false }`; emergency blank screen for the current room.
+- `POST /api/suggestions` — public, no login — body `{ message, name? }`; stores a feedback/suggestion. Rate-limited to one per 15 seconds per IP.
+- `GET /api/suggestions?key=<ADMIN_KEY>` — lists submitted suggestions. Disabled unless `ADMIN_KEY` is set in the environment; powers `/admin-suggestions.html` (not linked anywhere in the UI).
 
 ## Bible text data
 
@@ -477,9 +494,12 @@ npm run seed && npm start
 Re-seeding takes a couple of seconds and is idempotent, so this just means
 the database silently rebuilds itself every time the service boots. You
 won't lose the Bible text, since that never changes — but **everything else
-in the database resets on every restart too**: Font Setting edits, and
-**all registered operator accounts**. Anyone who registered will need to
-register again after a restart. If that becomes annoying:
+in the database resets on every restart too**: Font Setting edits, **all
+locale rooms** (so their resume points are lost), and any submitted
+**suggestions**. Since there's no login to begin with, "losing an account"
+isn't a concern anymore — but anyone operating at the moment of a restart
+will need to re-enter their locale + operator name, and it'll start fresh
+with no resume point. If that becomes annoying:
 - Upgrade to a Render plan with a **persistent disk**, mount it at the
   `data/` folder, and change the start command back to just `npm start`
   (seed once manually via the Render shell instead).
