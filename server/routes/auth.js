@@ -1,6 +1,5 @@
 const express = require('express');
 const db = require('../db');
-const { hashPassword, verifyPassword } = require('../auth');
 const { issueWsToken } = require('../wsTokens');
 const { touchActivity } = require('../cleanup');
 
@@ -33,7 +32,10 @@ function cleanName(s) {
 }
 
 // GET /api/auth/check-operator?locale=Ugong&operatorName=Bro.%20Juan
-// Real-time availability check while filling out the registration form.
+// Informational only — there's no password gate anymore, so this just tells
+// the form whether that locale+name pair is already an active room (so a
+// second person typing the same thing knows they'd be taking it over, not
+// creating a conflict).
 router.get('/check-operator', (req, res) => {
   const locale = cleanName(req.query.locale);
   const operatorName = cleanName(req.query.operatorName);
@@ -46,11 +48,15 @@ router.get('/check-operator', (req, res) => {
   res.json({ valid: true, available: !existing });
 });
 
-// POST /api/auth/register — { locale, operatorName, password, isPublic }
-router.post('/register', (req, res) => {
-  const { password, isPublic } = req.body || {};
+// POST /api/auth/start — { locale, operatorName, isPublic }
+// No account, no password: entering a locale + operator name either creates
+// that room (first time) or re-enters it (if it already exists) — same
+// "whoever connects most recently is the active broadcaster" model the rest
+// of the app already uses. This is deliberately not a credential-gated login.
+router.post('/start', (req, res) => {
   const locale = cleanName(req.body && req.body.locale);
   const operatorName = cleanName(req.body && req.body.operatorName);
+  const { isPublic } = req.body || {};
 
   if (!locale || !NAME_RE.test(locale)) {
     return res.status(400).json({ error: 'Locale should be 2-40 characters — letters, numbers, spaces, hyphens.' });
@@ -58,39 +64,25 @@ router.post('/register', (req, res) => {
   if (!operatorName || !NAME_RE.test(operatorName)) {
     return res.status(400).json({ error: 'Operator name should be 2-40 characters — letters, numbers, spaces, hyphens.' });
   }
-  if (!password || password.length < 6) {
-    return res.status(400).json({ error: 'Password must be at least 6 characters.' });
-  }
-  const existing = db.prepare(
-    'SELECT id FROM operators WHERE locale = ? COLLATE NOCASE AND operator_name = ? COLLATE NOCASE'
-  ).get(locale, operatorName);
-  if (existing) {
-    return res.status(409).json({ error: `"${operatorName}" is already registered under "${locale}" — try a different operator name.` });
-  }
 
-  const { hash, salt } = hashPassword(password);
-  const info = db.prepare(`
-    INSERT INTO operators (locale, operator_name, password_hash, password_salt, is_public)
-    VALUES (?, ?, ?, ?, ?)
-  `).run(locale, operatorName, hash, salt, isPublic === false ? 0 : 1);
-
-  const row = db.prepare('SELECT * FROM operators WHERE id = ?').get(info.lastInsertRowid);
-  req.session.operatorId = row.id;
-  res.json(publicOperator(row));
-});
-
-// POST /api/auth/login — { locale, operatorName, password }
-router.post('/login', (req, res) => {
-  const locale = cleanName(req.body && req.body.locale);
-  const operatorName = cleanName(req.body && req.body.operatorName);
-  const { password } = req.body || {};
-
-  const row = db.prepare(
+  let row = db.prepare(
     'SELECT * FROM operators WHERE locale = ? COLLATE NOCASE AND operator_name = ? COLLATE NOCASE'
   ).get(locale, operatorName);
-  if (!row || !verifyPassword(password || '', row.password_salt, row.password_hash)) {
-    return res.status(401).json({ error: 'Incorrect locale, operator name, or password.' });
+
+  if (row) {
+    // Re-entering an existing room — refresh visibility if provided, keep everything else (resume point) as-is.
+    if (typeof isPublic !== 'undefined') {
+      db.prepare('UPDATE operators SET is_public = ? WHERE id = ?').run(isPublic === false ? 0 : 1, row.id);
+    }
+    row = db.prepare('SELECT * FROM operators WHERE id = ?').get(row.id);
+  } else {
+    const info = db.prepare(`
+      INSERT INTO operators (locale, operator_name, is_public)
+      VALUES (?, ?, ?)
+    `).run(locale, operatorName, isPublic === false ? 0 : 1);
+    row = db.prepare('SELECT * FROM operators WHERE id = ?').get(info.lastInsertRowid);
   }
+
   req.session.operatorId = row.id;
   touchActivity(row.id);
   res.json(publicOperator(row));
@@ -110,14 +102,14 @@ router.get('/me', (req, res) => {
 });
 
 // POST /api/auth/heartbeat — called periodically by an open Control Panel so
-// a live-but-idle session doesn't get swept by the 1-hour inactivity cleanup.
+// a live-but-idle session doesn't get swept by the inactivity cleanup.
 router.post('/heartbeat', (req, res) => {
   if (!req.session.operatorId) return res.status(401).json({ error: 'Not logged in' });
   touchActivity(req.session.operatorId);
   res.json({ ok: true });
 });
 
-// PUT /api/auth/visibility — { isPublic } — toggle public/private after signup
+// PUT /api/auth/visibility — { isPublic } — toggle public/private anytime
 router.put('/visibility', (req, res) => {
   if (!req.session.operatorId) return res.status(401).json({ error: 'Not logged in' });
   const { isPublic } = req.body || {};
