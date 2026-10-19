@@ -9,7 +9,6 @@
     fontStep: 2,           // 1 small, 2 medium, 3 large — manual mode only
     fontTable: [],         // [{rangeIndex, minLength, maxLength, fontSize}]
     operator: null,        // { id, locale, operatorName, label, isPublic, lastVersion, lastBook, lastChapter, lastVerse, lastBackground, lastSafeMargin }
-    authMode: 'login',     // 'login' | 'register'
     history: [],           // recently shown references, most recent last
     previewMode: { type: 'auto', version: null }, // local-only, doesn't affect the broadcast
     blank: false
@@ -35,7 +34,7 @@
     return b ? b.tagalogName : key;
   }
 
-  // ---------- Auth (login/register gate) ----------
+  // ---------- Entry (no login — just claim a locale + operator name) ----------
   async function boot() {
     wireAuthForm();
     trapFocus(el('authOverlay'));
@@ -53,45 +52,20 @@
     el('mainConsole').style.display = 'none';
   }
 
-  function setAuthMode(mode) {
-    state.authMode = mode;
-    el('authTitle').textContent = mode === 'login' ? 'Operator Sign In' : 'Register as Operator';
-    el('authSubmit').textContent = mode === 'login' ? 'Sign In' : 'Register';
-    el('authVisibilityField').style.display = mode === 'register' ? '' : 'none';
-    el('authSwitchText').textContent = mode === 'login' ? 'No operator account yet?' : 'Already have one?';
-    el('authSwitchLink').textContent = mode === 'login' ? 'Register one' : 'Sign in instead';
-    el('authError').textContent = '';
-    el('authLocaleStatus').textContent = '';
-    el('authLocaleStatus').className = 'auth-help';
-  }
-
   function wireAuthForm() {
-    setAuthMode('login');
-    el('authSwitchLink').addEventListener('click', e => {
-      e.preventDefault();
-      setAuthMode(state.authMode === 'login' ? 'register' : 'login');
-    });
     el('authSubmit').addEventListener('click', submitAuthForm);
-    [el('authLocale'), el('authOperatorName'), el('authPassword')].forEach(input => {
+    [el('authLocale'), el('authOperatorName')].forEach(input => {
       input.addEventListener('keydown', e => { if (e.key === 'Enter') submitAuthForm(); });
-    });
-
-    el('authPasswordToggle').addEventListener('click', () => {
-      const input = el('authPassword');
-      const btn = el('authPasswordToggle');
-      const showing = input.type === 'text';
-      input.type = showing ? 'password' : 'text';
-      btn.textContent = showing ? '👁' : '🙈';
-      btn.setAttribute('aria-label', showing ? 'Show password' : 'Hide password');
     });
 
     el('authLocale').addEventListener('input', debounce(checkOperatorAvailability, 350));
     el('authOperatorName').addEventListener('input', debounce(checkOperatorAvailability, 350));
   }
 
+  // Informational only — no password gate anymore, so this just lets someone
+  // know they'd be taking over an already-active room, not creating a conflict.
   async function checkOperatorAvailability() {
     const statusEl = el('authLocaleStatus');
-    if (state.authMode !== 'register') { statusEl.textContent = ''; return; }
     const locale = el('authLocale').value.trim();
     const operatorName = el('authOperatorName').value.trim();
     if (locale.length < 2 || operatorName.length < 2) { statusEl.textContent = ''; statusEl.className = 'auth-help'; return; }
@@ -104,11 +78,11 @@
         statusEl.textContent = '2-40 characters — letters, numbers, spaces, hyphens.';
         statusEl.className = 'auth-help status-taken';
       } else if (data.available) {
-        statusEl.textContent = `"${operatorName}" is available under "${locale}".`;
+        statusEl.textContent = `"${operatorName}" is free under "${locale}".`;
         statusEl.className = 'auth-help status-available';
       } else {
-        statusEl.textContent = `"${operatorName}" is already registered under "${locale}" — try a different name.`;
-        statusEl.className = 'auth-help status-taken';
+        statusEl.textContent = `"${operatorName}" is already active under "${locale}" — continuing will take over that room.`;
+        statusEl.className = 'auth-help status-checking';
       }
     } catch (err) {
       statusEl.textContent = '';
@@ -118,21 +92,15 @@
   async function submitAuthForm() {
     const locale = el('authLocale').value.trim();
     const operatorName = el('authOperatorName').value.trim();
-    const password = el('authPassword').value;
     const isPublic = (document.querySelector('input[name="authVisibility"]:checked') || {}).value !== 'private';
     const errorEl = el('authError');
     errorEl.textContent = '';
 
-    const path = state.authMode === 'login' ? '/auth/login' : '/auth/register';
-    const body = state.authMode === 'login'
-      ? { locale, operatorName, password }
-      : { locale, operatorName, password, isPublic };
-
     try {
-      const res = await fetch('/api' + path, {
+      const res = await fetch('/api/auth/start', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(body)
+        body: JSON.stringify({ locale, operatorName, isPublic })
       });
       const data = await res.json();
       if (!res.ok) {
