@@ -107,6 +107,35 @@
   footer.site-footer p{ font-size:12px; color:#7683ab; line-height:1.8; margin:0 0 6px; max-width:560px; margin-inline:auto; }
   footer.site-footer a{ color:#a9b6e0; text-decoration:none; }
   footer.site-footer a:hover{ text-decoration:underline; }
+
+  /* ---- Suggestion box (floating button + modal) ---- */
+  .suggest-fab{
+    position:fixed; right:20px; bottom:20px; z-index:90;
+    display:inline-flex; align-items:center; gap:8px; min-height:44px;
+    padding:0 18px; border-radius:999px; border:1px solid rgba(224,168,60,0.4);
+    background:rgba(10,14,30,0.92); color:#fff; font-size:13px; font-weight:700;
+    cursor:pointer; box-shadow:var(--shadow-md);
+    transition:transform .15s ease, border-color .15s ease;
+  }
+  .suggest-fab:hover{ transform:translateY(-2px); border-color:var(--gold); }
+  .suggest-field{ margin-bottom:18px; }
+  .suggest-field label{
+    display:block; font-size:11.5px; font-weight:700; margin-bottom:6px; color:var(--muted);
+    text-transform:uppercase; letter-spacing:.04em;
+  }
+  .suggest-field input, .suggest-field textarea{
+    width:100%; box-sizing:border-box; padding:12px 14px; font-size:14.5px; font-family:inherit;
+    border:1px solid var(--border-light); border-radius:var(--radius-sm);
+    background:var(--surface-2); color:var(--ink); resize:vertical;
+  }
+  .suggest-field input{ height:44px; }
+  .suggest-field textarea{ min-height:120px; line-height:1.5; }
+  .suggest-field input:focus, .suggest-field textarea:focus{
+    outline:none; border-color:var(--gold); box-shadow:0 0 0 3px rgba(224,168,60,0.2);
+  }
+  @media(max-width:480px){
+    .suggest-fab{ right:14px; bottom:14px; padding:0 14px; font-size:12.5px; }
+  }
 </style>
 </head>
 <body>
@@ -116,7 +145,7 @@
       <div class="mark">MCGI</div>
       <span class="name">MCGI Digital Bible</span>
     </div>
-    <a class="header-cta" href="/control">Operator Sign In</a>
+    <a class="header-cta" href="/control">Open Control Panel</a>
   </header>
 
   <div class="site">
@@ -177,7 +206,7 @@
           <h3>If you are assigned as operator:</h3>
           <ol>
             <li>Open the Control Panel</li>
-            <li>Sign in with your Locale and Operator name</li>
+            <li>Type in your Locale and Operator name — no account or password needed</li>
             <li>Select the verse to be shown</li>
             <li>Share the presenter link for the screen or helpers</li>
           </ol>
@@ -199,7 +228,7 @@
       <div class="role-grid">
         <a class="role-card" href="/control">
           <h3>I Am an Operator</h3>
-          <p>Sign in with your locale and operator name to select and broadcast verses.</p>
+          <p>Enter your locale and operator name — no account or password needed — to select and broadcast verses.</p>
           <span class="cta">Open Control Panel →</span>
         </a>
         <a class="role-card" href="/present">
@@ -217,11 +246,102 @@
   </div>
 
   <footer class="site-footer">
-    <p>Viewers do not need an account. Operator accounts are temporary and are removed after inactivity.</p>
+    <p>No account or password needed for anyone, operator or viewer. A locale room is removed after an hour of inactivity.</p>
     <p>The presenter view is kept plain: reference, version, and verse text.</p>
     <p>This is for live presentation in the locale, not a full personal study Bible replacement.</p>
     <p style="margin-top:14px;">Inspired by the original presentation workflow at <a href="https://bible.mcgi.app">bible.mcgi.app</a>. Not an official global MCGI platform.</p>
   </footer>
+
+  <button class="suggest-fab" id="suggestFab" aria-haspopup="dialog">💬 Suggestion</button>
+
+  <div class="toast-stack" id="toastStack"></div>
+
+  <div class="fs-overlay" id="suggestOverlay">
+    <div class="fs-dialog auth-dialog" role="dialog" aria-modal="true" aria-label="Send a suggestion">
+      <div class="fs-titlebar">
+        <span>Send a Suggestion</span>
+        <button id="suggestCloseX" aria-label="Close">✕</button>
+      </div>
+      <div class="fs-body">
+        <p style="font-size:13px;color:#a9b6e0;line-height:1.6;margin:0 0 18px;">
+          Feature request, bug, or anything else — this goes straight to whoever maintains this app.
+        </p>
+        <div class="suggest-field">
+          <label>Your name (optional)</label>
+          <input type="text" id="suggestName" placeholder="e.g. Bro. Juan, Ugong" autocomplete="off" maxlength="60" />
+        </div>
+        <div class="suggest-field">
+          <label>Suggestion</label>
+          <textarea id="suggestMessage" placeholder="What would make this more useful for your locale?" maxlength="2000"></textarea>
+        </div>
+        <div class="auth-error" id="suggestError"></div>
+        <div class="fs-actions">
+          <button class="fs-btn" id="suggestSubmit">Send</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    (() => {
+      const fab = document.getElementById('suggestFab');
+      const overlay = document.getElementById('suggestOverlay');
+      const closeX = document.getElementById('suggestCloseX');
+      const nameInput = document.getElementById('suggestName');
+      const msgInput = document.getElementById('suggestMessage');
+      const errorEl = document.getElementById('suggestError');
+      const submitBtn = document.getElementById('suggestSubmit');
+      const toastStack = document.getElementById('toastStack');
+
+      function showToast(text) {
+        const t = document.createElement('div');
+        t.className = 'toast';
+        t.textContent = text;
+        toastStack.appendChild(t);
+        requestAnimationFrame(() => t.classList.add('show'));
+        setTimeout(() => { t.classList.remove('show'); setTimeout(() => t.remove(), 300); }, 3200);
+      }
+
+      function open() { overlay.classList.add('open'); errorEl.textContent = ''; msgInput.focus(); }
+      function close() { overlay.classList.remove('open'); }
+
+      fab.addEventListener('click', open);
+      closeX.addEventListener('click', close);
+      overlay.addEventListener('click', e => { if (e.target === overlay) close(); });
+      document.addEventListener('keydown', e => { if (e.key === 'Escape' && overlay.classList.contains('open')) close(); });
+
+      async function submit() {
+        const message = msgInput.value.trim();
+        const name = nameInput.value.trim();
+        errorEl.textContent = '';
+        if (!message) { errorEl.textContent = 'Please write a suggestion first.'; return; }
+
+        submitBtn.disabled = true;
+        try {
+          const res = await fetch('/api/suggestions', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ message, name })
+          });
+          const data = await res.json();
+          if (!res.ok) {
+            errorEl.textContent = data.error || 'Something went wrong.';
+            return;
+          }
+          msgInput.value = '';
+          close();
+          showToast('Thank you! Your suggestion was sent.');
+        } catch (err) {
+          errorEl.textContent = 'Could not reach the server.';
+        } finally {
+          submitBtn.disabled = false;
+        }
+      }
+
+      submitBtn.addEventListener('click', submit);
+      msgInput.addEventListener('keydown', e => { if (e.key === 'Enter' && e.metaKey) submit(); });
+    })();
+  </script>
 
 </body>
 </html>

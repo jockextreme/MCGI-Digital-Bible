@@ -61,9 +61,9 @@
   <div class="toast-stack" id="toastStack"></div>
 
   <div class="fs-overlay open" id="authOverlay">
-    <div class="fs-dialog auth-dialog" role="dialog" aria-modal="true" aria-label="Sign in">
+    <div class="fs-dialog auth-dialog" role="dialog" aria-modal="true" aria-label="Enter the Control Panel">
       <div class="fs-titlebar">
-        <span id="authTitle">Operator Sign In</span>
+        <span id="authTitle">Enter the Control Panel</span>
       </div>
       <div class="fs-body">
         <div class="auth-field">
@@ -77,7 +77,7 @@
           <input type="text" id="authOperatorName" placeholder="e.g. Bro. Juan" autocomplete="off" />
         </div>
 
-        <div class="auth-field" id="authVisibilityField" style="display:none;">
+        <div class="auth-field" id="authVisibilityField">
           <label>Visibility</label>
           <div class="auth-visibility">
             <label class="auth-radio">
@@ -91,24 +91,11 @@
           </div>
         </div>
 
-        <div class="auth-field">
-          <label>Password</label>
-          <div class="auth-password-wrap">
-            <input type="password" id="authPassword" placeholder="e.g. Test123" autocomplete="current-password" />
-            <button type="button" id="authPasswordToggle" aria-label="Show password">👁</button>
-          </div>
-          <p class="auth-help">At least 6 characters.</p>
-        </div>
-
         <div class="auth-error" id="authError"></div>
         <div class="fs-actions">
-          <button class="fs-btn" id="authSubmit">Sign In</button>
+          <button class="fs-btn" id="authSubmit">Start</button>
         </div>
-        <div class="auth-switch">
-          <span id="authSwitchText">No operator account yet?</span>
-          <a href="#" id="authSwitchLink">Register one</a>
-        </div>
-        <p class="auth-notice">Operator accounts are temporary and are removed after an hour of inactivity — not a permanent login.</p>
+        <p class="auth-notice">No account or password needed. This room is temporary and is removed after an hour of inactivity.</p>
       </div>
     </div>
   </div>
@@ -125,7 +112,7 @@
       <button class="navbtn" id="copyLinkBtn">Copy Presenter Link</button>
       <div class="spacer"></div>
       <span class="shortcuts-hint">← → navigate · / search · F fullscreen · B blank · Esc close</span>
-      <button class="navbtn" id="logoutBtn">Log out</button>
+      <button class="navbtn" id="logoutBtn">Leave Room</button>
     </div>
 
     <p class="preview-label">Now Showing (Confidence Monitor) — this is exactly what your audience sees, live</p>
