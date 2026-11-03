@@ -64,8 +64,6 @@ function initSchema() {
       id INTEGER PRIMARY KEY AUTOINCREMENT,
       locale TEXT NOT NULL,
       operator_name TEXT NOT NULL,
-      password_hash TEXT NOT NULL,
-      password_salt TEXT NOT NULL,
       is_public INTEGER NOT NULL DEFAULT 1,
       last_active_at TEXT NOT NULL DEFAULT (datetime('now')),
       last_version TEXT,
@@ -78,6 +76,13 @@ function initSchema() {
       UNIQUE(locale COLLATE NOCASE, operator_name COLLATE NOCASE)
     );
     CREATE INDEX IF NOT EXISTS idx_operators_locale ON operators(locale COLLATE NOCASE);
+
+    CREATE TABLE IF NOT EXISTS suggestions (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      message TEXT NOT NULL,
+      name TEXT,
+      created_at TEXT NOT NULL DEFAULT (datetime('now'))
+    );
   `);
 
   // One-time migration: if an old single-identity "operators" table exists
@@ -86,15 +91,15 @@ function initSchema() {
   // shape entirely (single username -> locale + operator name pair), so
   // there's no sensible 1:1 mapping. Temporary accounts anyway (1hr TTL).
   const opCols = db.prepare(`PRAGMA table_info(operators)`).all().map(c => c.name);
-  if (opCols.includes('username') && !opCols.includes('operator_name')) {
+  const needsRebuild = (opCols.includes('username') && !opCols.includes('operator_name'))
+    || opCols.includes('password_hash'); // login/password removed — accounts are now just a claimed locale+name, no credential
+  if (needsRebuild) {
     db.exec(`DROP TABLE operators;`);
     db.exec(`
       CREATE TABLE operators (
         id INTEGER PRIMARY KEY AUTOINCREMENT,
         locale TEXT NOT NULL,
         operator_name TEXT NOT NULL,
-        password_hash TEXT NOT NULL,
-        password_salt TEXT NOT NULL,
         is_public INTEGER NOT NULL DEFAULT 1,
         last_active_at TEXT NOT NULL DEFAULT (datetime('now')),
         last_version TEXT,

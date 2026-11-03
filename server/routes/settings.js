@@ -17,7 +17,10 @@ router.get('/', (req, res) => {
 // PUT /api/font-settings — body: [{ rangeIndex, fontSize }, ...]
 // Only font sizes are editable; the ranges themselves are fixed (matches the
 // real app's dialog, where only the size column has spinners).
+// Requires an active operator session — this edits a table shared by every
+// room, so it shouldn't be reachable by just anyone who finds the URL.
 router.put('/', (req, res) => {
+  if (!req.session.operatorId) return res.status(401).json({ error: 'Not logged in' });
   const updates = req.body;
   if (!Array.isArray(updates)) {
     return res.status(400).json({ error: 'Expected an array of { rangeIndex, fontSize }' });

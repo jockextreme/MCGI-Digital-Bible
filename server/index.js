@@ -13,6 +13,7 @@ const settingsRouter = require('./routes/settings');
 const liveStateRouter = require('./routes/liveState');
 const authRouter = require('./routes/auth');
 const operatorsRouter = require('./routes/operators');
+const suggestionsRouter = require('./routes/suggestions');
 
 const db = require('./db');
 const liveState = require('./liveState');
@@ -44,6 +45,7 @@ app.use('/api/search', searchRouter);
 app.use('/api/font-settings', settingsRouter);
 app.use('/api/live-state', liveStateRouter);
 app.use('/api/operators', operatorsRouter);
+app.use('/api/suggestions', suggestionsRouter);
 
 app.get('/api/health', (req, res) => res.json({ ok: true }));
 
